@@ -1,6 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Pharmacist Dashboard{% endblock %}
 {% block content %}
-  <h1>Pharmacist Dashboard (placeholder)</h1>
-  <p>Welcome, {{ user.get_full_name|default:user.username }}. This is the pharmacist dashboard.</p>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-0">Pharmacist Dashboard</h1>
+      {% if pharmacy %}
+        <p class="text-muted mb-0">{{ pharmacy.name }}</p>
+      {% endif %}
+    </div>
+    {% if pharmacy %}
+      <a href="{% url 'inventory:medicine_add' %}" class="btn btn-primary">+ Add Medicine</a>
+    {% endif %}
+  </div>
+
+  {% if pharmacy %}
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Medicine Name</th>
+            <th>Quantity</th>
+            <th>Minimum Threshold</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in inventory_items %}
+            <tr>
+              <td>{{ item.medicine.name }}</td>
+              <td>{{ item.quantity }}</td>
+              <td>{{ item.minimum_threshold }}</td>
+              <td>
+                <a href="{% url 'inventory:medicine_edit' item.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                <a href="{% url 'inventory:medicine_delete' item.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">
+                No medicines yet. Click "+ Add Medicine" to get started.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-muted">No pharmacy is linked to your account yet. Please contact an administrator.</p>
+  {% endif %}
 {% endblock %}
