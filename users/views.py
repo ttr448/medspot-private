@@ -4,8 +4,11 @@ from django.contrib import messages
 from django.contrib.auth import logout, get_user_model
 from django.contrib.auth.views import LoginView
 from django.views import View
+from django.db.models import Q
+
 from .forms import PatientRegistrationForm, PharmacistRegistrationForm
 from users.decorators import role_required
+from inventory.models import Inventory
 
 # Get the custom user model (CustomUser)
 User = get_user_model()
@@ -81,10 +84,35 @@ class CustomLogoutView(View):
 
 
 def patient_search(request):
+    # Only logged-in patients can search for medicine.
     if not request.user.is_authenticated or getattr(request.user, "role", None) != "patient":
         messages.error(request, "Please log in as a patient to access this page.")
         return redirect("users:login")
-    return render(request, "users/patient_search.html")
+
+    query = request.GET.get("q", "").strip()
+    results = Inventory.objects.none()
+
+    if query:
+        results = (
+            Inventory.objects.filter(
+                quantity__gt=0,
+                pharmacy__owner__is_active=True,
+                pharmacy__owner__is_verified=True,
+                pharmacy__owner__role="pharmacist",
+            )
+            .filter(
+                Q(medicine__name__icontains=query)
+                | Q(medicine__active_ingredient__icontains=query)
+            )
+            .select_related("medicine", "pharmacy")
+            .order_by("medicine__name", "pharmacy__name")
+        )
+
+    return render(
+        request,
+        "users/patient_search.html",
+        {"query": query, "results": results},
+    )
 
 
 def access_denied(request):
