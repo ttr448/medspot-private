@@ -1,6 +1,64 @@
 {% extends "base.html" %}
-{% block title %}Patient Search{% endblock %}
+{% block title %}Find Medicine | MedSpot{% endblock %}
+
 {% block content %}
-  <h1>Patient Search (placeholder)</h1>
-  <p>This is a placeholder search page for patients.</p>
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <h1 class="h3 mb-2">Find a Medicine</h1>
+      <p class="text-muted mb-4">Search by medicine name or active ingredient to see pharmacies where it is available.</p>
+
+      <form method="get" action="{% url 'users:patient_search' %}" class="mb-4">
+        <div class="input-group">
+          <input
+            type="search"
+            class="form-control"
+            name="q"
+            value="{{ query }}"
+            placeholder="e.g. Panadol or Paracetamol"
+            aria-label="Medicine name or active ingredient"
+          >
+          <button class="btn btn-primary" type="submit">Search</button>
+        </div>
+      </form>
+
+      {% if query %}
+        <h2 class="h5 mb-3">Results for “{{ query }}”</h2>
+
+        {% if results %}
+          <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+              <thead>
+                <tr>
+                  <th scope="col">Medicine</th>
+                  <th scope="col">Active ingredient</th>
+                  <th scope="col">Dosage form</th>
+                  <th scope="col">Pharmacy</th>
+                  <th scope="col">Address</th>
+                  <th scope="col">Quantity available</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in results %}
+                  <tr>
+                    <td>{{ item.medicine.name }}</td>
+                    <td>{{ item.medicine.active_ingredient|default:"—" }}</td>
+                    <td>{{ item.medicine.dosage_form|default:"—" }}</td>
+                    <td>{{ item.pharmacy.name }}</td>
+                    <td>{{ item.pharmacy.address }}</td>
+                    <td>{{ item.quantity }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="alert alert-info" role="status">
+            No pharmacies found with this medicine. Check the spelling or try the active ingredient.
+          </div>
+        {% endif %}
+      {% else %}
+        <p class="text-muted">Enter a medicine name or active ingredient to begin searching.</p>
+      {% endif %}
+    </div>
+  </div>
 {% endblock %}
