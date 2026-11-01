@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from alerts.models import Alert
-from alerts.services import update_low_stock_alert
+from alerts.services import resolve_low_stock_alert, update_low_stock_alert
 from inventory.models import Inventory
 from medicines.models import Medicine
 from pharmacies.models import Pharmacy
@@ -158,3 +158,17 @@ class LowStockAlertTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_alert_is_closed_when_medicine_is_removed(self):
+        alert = Alert.objects.create(
+            pharmacy=self.pharmacy,
+            medicine=self.medicine,
+            alert_type="low_stock",
+            message="Panadol is low in stock.",
+        )
+
+        resolve_low_stock_alert(self.inventory)
+
+        alert.refresh_from_db()
+        self.assertTrue(alert.acknowledged)
+        self.assertIn("removed", alert.message)
