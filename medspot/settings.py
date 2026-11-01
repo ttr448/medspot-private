@@ -19,6 +19,10 @@ SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-for-dev")
 DEBUG = env.bool("DEBUG", default=True)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["127.0.0.1", "localhost"])
 
+# Google Maps JavaScript API key is optional during local development.
+# Add it to the local .env file; do not commit the key to Git.
+GOOGLE_MAPS_API_KEY = env("GOOGLE_MAPS_API_KEY", default="")
+
 INSTALLED_APPS = [
     # default Django apps
     "django.contrib.admin",
