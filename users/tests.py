@@ -124,3 +124,50 @@ class PatientMedicineSearchTests(TestCase):
         response = self.client.get(self.search_url)
 
         self.assertRedirects(response, reverse("users:login"))
+
+    def test_results_are_sorted_by_haversine_distance(self):
+        self.pharmacy.latitude = "12.000000"
+        self.pharmacy.longitude = "15.000000"
+        self.pharmacy.save(update_fields=["latitude", "longitude"])
+
+        closer_pharmacist = User.objects.create_user(
+            username="closer_pharmacist",
+            password="test-password-123",
+            role="pharmacist",
+            is_active=True,
+            is_verified=True,
+        )
+        closer_pharmacy = Pharmacy.objects.create(
+            name="Closer Pharmacy",
+            address="Near the patient",
+            latitude="12.010000",
+            longitude="15.000000",
+            owner=closer_pharmacist,
+        )
+        closer_item = Inventory.objects.create(
+            pharmacy=closer_pharmacy,
+            medicine=self.panadol,
+            quantity=12,
+        )
+
+        response = self.client.get(
+            self.search_url,
+            {"q": "Panadol", "lat": "12.009000", "lng": "15.000000"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        results = response.context["results"]
+        self.assertEqual(results[0], closer_item)
+        self.assertLess(results[0].distance_km, results[1].distance_km)
+        self.assertContains(response, "Nearest pharmacy: <strong>Closer Pharmacy</strong>")
+
+    def test_invalid_patient_coordinates_are_ignored_safely(self):
+        response = self.client.get(
+            self.search_url,
+            {"q": "Panadol", "lat": "95", "lng": "200"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["location_error"])
+        self.assertFalse(response.context["has_patient_location"])
+        self.assertEqual(list(response.context["results"]), [self.available_item])
