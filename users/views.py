@@ -128,15 +128,16 @@ def patient_search(request):
         messages.error(request, "Please log in as a patient to access this page.")
         return redirect("users:login")
 
-    query = request.GET.get("q", "").strip()
-    patient_latitude = _parse_coordinate(request.GET.get("lat"), -90, 90)
-    patient_longitude = _parse_coordinate(request.GET.get("lng"), -180, 180)
+    location_data = request.POST if request.method == "POST" else request.GET
+    query = location_data.get("q", "").strip()
+    patient_latitude = _parse_coordinate(location_data.get("lat"), -90, 90)
+    patient_longitude = _parse_coordinate(location_data.get("lng"), -180, 180)
     has_patient_location = (
         patient_latitude is not None and patient_longitude is not None
     )
 
     location_error = False
-    if ("lat" in request.GET or "lng" in request.GET) and not has_patient_location:
+    if ("lat" in location_data or "lng" in location_data) and not has_patient_location:
         location_error = True
 
     results = Inventory.objects.none()
