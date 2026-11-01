@@ -19,10 +19,15 @@
             placeholder="e.g. Panadol or Paracetamol"
             aria-label="Medicine name or active ingredient"
           >
-          <input id="patient-latitude" type="hidden" name="lat" value="{% if patient_latitude != None %}{{ patient_latitude }}{% endif %}">
-          <input id="patient-longitude" type="hidden" name="lng" value="{% if patient_longitude != None %}{{ patient_longitude }}{% endif %}">
           <button class="btn btn-primary" type="submit">Search</button>
         </div>
+      </form>
+
+      <form id="nearest-search-form" method="post" action="{% url 'users:patient_search' %}" class="d-none">
+        {% csrf_token %}
+        <input type="hidden" name="q" value="{{ query }}">
+        <input id="patient-latitude" type="hidden" name="lat">
+        <input id="patient-longitude" type="hidden" name="lng">
       </form>
 
       {% if query and results %}
@@ -204,7 +209,7 @@
     <script>
       document.getElementById("find-nearest-button").addEventListener("click", function () {
         const status = document.getElementById("location-status");
-        const form = document.getElementById("medicine-search-form");
+        const form = document.getElementById("nearest-search-form");
 
         if (!navigator.geolocation) {
           status.textContent = "Location sharing is not supported by this browser.";
