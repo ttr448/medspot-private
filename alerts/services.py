@@ -60,3 +60,16 @@ def update_low_stock_alert(inventory, user, previous_was_low=None):
         alert.save(update_fields=["acknowledged", "message"])
 
     return alert
+
+
+def resolve_low_stock_alert(inventory):
+    """Close an active alert when the pharmacy removes the medicine from stock."""
+    Alert.objects.filter(
+        pharmacy=inventory.pharmacy,
+        medicine=inventory.medicine,
+        alert_type="low_stock",
+        acknowledged=False,
+    ).update(
+        acknowledged=True,
+        message=f"{inventory.medicine.name} was removed from this pharmacy's available stock list.",
+    )
