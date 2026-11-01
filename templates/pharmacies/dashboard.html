@@ -14,6 +14,22 @@
   </div>
 
   {% if pharmacy %}
+    {% if low_stock_alerts %}
+      <div class="alert alert-warning" role="status">
+        <h2 class="h5">Low-stock alerts</h2>
+        <p class="mb-2">These medicines have reached or fallen below their minimum threshold.</p>
+        {% for alert in low_stock_alerts %}
+          <div class="d-flex flex-wrap justify-content-between align-items-center border-top py-2">
+            <span>{{ alert.message }}</span>
+            <form method="post" action="{% url 'alerts:acknowledge' alert.pk %}" class="ms-2">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-dark">Dismiss</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     <div class="table-responsive">
       <table class="table table-striped align-middle">
         <thead>
@@ -28,7 +44,12 @@
           {% for item in inventory_items %}
             <tr>
               <td>{{ item.medicine.name }}</td>
-              <td>{{ item.quantity }}</td>
+              <td>
+                {{ item.quantity }}
+                {% if item.quantity <= item.minimum_threshold %}
+                  <span class="badge text-bg-warning">Low stock</span>
+                {% endif %}
+              </td>
               <td>{{ item.minimum_threshold }}</td>
               <td>
                 <a href="{% url 'inventory:medicine_edit' item.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
