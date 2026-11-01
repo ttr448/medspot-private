@@ -150,7 +150,7 @@ class PatientMedicineSearchTests(TestCase):
             quantity=12,
         )
 
-        response = self.client.get(
+        response = self.client.post(
             self.search_url,
             {"q": "Panadol", "lat": "12.009000", "lng": "15.000000"},
         )
@@ -162,7 +162,7 @@ class PatientMedicineSearchTests(TestCase):
         self.assertContains(response, "Nearest pharmacy: <strong>Closer Pharmacy</strong>")
 
     def test_invalid_patient_coordinates_are_ignored_safely(self):
-        response = self.client.get(
+        response = self.client.post(
             self.search_url,
             {"q": "Panadol", "lat": "95", "lng": "200"},
         )
