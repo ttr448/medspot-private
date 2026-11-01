@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
-from alerts.services import update_low_stock_alert
+from alerts.services import resolve_low_stock_alert, update_low_stock_alert
 from users.decorators import role_required
 from pharmacies.models import Pharmacy
 from medicines.models import Medicine
@@ -109,6 +109,7 @@ def medicine_delete(request, pk):
 
     if request.method == "POST":
         medicine_name = inventory.medicine.name
+        resolve_low_stock_alert(inventory)
         inventory.delete()
         messages.success(request, f"{medicine_name} deleted successfully.")
         return redirect("pharmacies:dashboard")
