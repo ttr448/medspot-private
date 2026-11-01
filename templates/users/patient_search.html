@@ -140,11 +140,17 @@
                     bounds.extend(position);
 
                     marker.addListener("click", () => {
-                      infoWindow.setContent(
-                        "<strong>" + location.pharmacy_name + "</strong><br>" +
-                        location.address + "<br>" +
-                        location.medicine_name + " — quantity: " + location.quantity
-                      );
+                      const infoContent = document.createElement("div");
+                      const pharmacyTitle = document.createElement("strong");
+                      const address = document.createElement("div");
+                      const medicine = document.createElement("div");
+
+                      pharmacyTitle.textContent = location.pharmacy_name;
+                      address.textContent = location.address;
+                      medicine.textContent = location.medicine_name + " — quantity: " + location.quantity;
+
+                      infoContent.append(pharmacyTitle, address, medicine);
+                      infoWindow.setContent(infoContent);
                       infoWindow.open(map, marker);
                     });
                   });
@@ -163,9 +169,13 @@
                     bounds.extend(patientPosition);
                   {% endif %}
 
-                  if (locations.length > 1{% if has_patient_location %} || true{% endif %}) {
+                  if (locations.length > 1) {
+                    map.fitBounds(bounds);
+                  }{% if has_patient_location %}
+                  else {
                     map.fitBounds(bounds);
                   }
+                  {% endif %}
                 }
               </script>
               <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key|urlencode }}&amp;callback=initMedSpotMap"></script>
