@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
+from alerts.services import update_low_stock_alert
 from users.decorators import role_required
 from pharmacies.models import Pharmacy
 from medicines.models import Medicine
@@ -41,7 +42,7 @@ def medicine_add(request):
 
             try:
                 with transaction.atomic():
-                    Inventory.objects.create(
+                    inventory = Inventory.objects.create(
                         pharmacy=pharmacy,
                         medicine=medicine,
                         quantity=data["quantity"],
@@ -54,6 +55,7 @@ def medicine_add(request):
                 )
                 return redirect("pharmacies:dashboard")
 
+            update_low_stock_alert(inventory, request.user, previous_was_low=False)
             messages.success(request, "Medicine added successfully.")
             return redirect("pharmacies:dashboard")
     else:
@@ -74,9 +76,11 @@ def medicine_edit(request, pk):
     if request.method == "POST":
         form = EditInventoryForm(request.POST)
         if form.is_valid():
+            previous_was_low = inventory.quantity <= inventory.minimum_threshold
             inventory.quantity = form.cleaned_data["quantity"]
             inventory.minimum_threshold = form.cleaned_data["minimum_threshold"]
             inventory.save()
+            update_low_stock_alert(inventory, request.user, previous_was_low=previous_was_low)
             messages.success(request, "Medicine updated successfully.")
             return redirect("pharmacies:dashboard")
     else:
