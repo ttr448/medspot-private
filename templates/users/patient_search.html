@@ -3,11 +3,13 @@
 
 {% block content %}
   <div class="row justify-content-center">
-    <div class="col-lg-10">
+    <div class="col-lg-11">
       <h1 class="h3 mb-2">Find a Medicine</h1>
-      <p class="text-muted mb-4">Search by medicine name or active ingredient to see pharmacies where it is available.</p>
+      <p class="text-muted mb-4">
+        Search by medicine name or active ingredient to see pharmacies where it is available.
+      </p>
 
-      <form method="get" action="{% url 'users:patient_search' %}" class="mb-4">
+      <form id="medicine-search-form" method="get" action="{% url 'users:patient_search' %}" class="mb-3">
         <div class="input-group">
           <input
             type="search"
@@ -17,14 +19,46 @@
             placeholder="e.g. Panadol or Paracetamol"
             aria-label="Medicine name or active ingredient"
           >
+          <input id="patient-latitude" type="hidden" name="lat" value="{% if patient_latitude != None %}{{ patient_latitude }}{% endif %}">
+          <input id="patient-longitude" type="hidden" name="lng" value="{% if patient_longitude != None %}{{ patient_longitude }}{% endif %}">
           <button class="btn btn-primary" type="submit">Search</button>
         </div>
       </form>
+
+      {% if query and results %}
+        <button id="find-nearest-button" type="button" class="btn btn-outline-primary mb-3">
+          Find Nearest Pharmacy
+        </button>
+        <p id="location-status" class="small text-muted" role="status" aria-live="polite">
+          {% if has_patient_location %}
+            Your location is being used to sort pharmacies by distance.
+          {% else %}
+            Share your location to calculate distances to these pharmacies.
+          {% endif %}
+        </p>
+      {% endif %}
+
+      {% if location_error %}
+        <div class="alert alert-warning" role="alert">
+          We could not read a valid location. Please try sharing your location again.
+        </div>
+      {% endif %}
 
       {% if query %}
         <h2 class="h5 mb-3">Results for “{{ query }}”</h2>
 
         {% if results %}
+          {% if nearest_pharmacy %}
+            <div class="alert alert-success" role="status">
+              Nearest pharmacy: <strong>{{ nearest_pharmacy.pharmacy.name }}</strong>
+              — approximately {{ nearest_pharmacy.distance_km }} km away.
+            </div>
+          {% elif has_patient_location %}
+            <div class="alert alert-warning" role="status">
+              We could not calculate a distance because these pharmacies do not have valid coordinates.
+            </div>
+          {% endif %}
+
           <div class="table-responsive">
             <table class="table table-striped table-hover align-middle">
               <thead>
@@ -35,6 +69,8 @@
                   <th scope="col">Pharmacy</th>
                   <th scope="col">Address</th>
                   <th scope="col">Quantity available</th>
+                  {% if has_patient_location %}<th scope="col">Distance (km)</th>{% endif %}
+                  <th scope="col">Map</th>
                 </tr>
               </thead>
               <tbody>
@@ -43,14 +79,106 @@
                     <td>{{ item.medicine.name }}</td>
                     <td>{{ item.medicine.active_ingredient|default:"—" }}</td>
                     <td>{{ item.medicine.dosage_form|default:"—" }}</td>
-                    <td>{{ item.pharmacy.name }}</td>
+                    <td>
+                      {{ item.pharmacy.name }}
+                      {% if forloop.first and nearest_pharmacy and item.distance_km != None %}
+                        <span class="badge text-bg-success">Nearest</span>
+                      {% endif %}
+                    </td>
                     <td>{{ item.pharmacy.address }}</td>
                     <td>{{ item.quantity }}</td>
+                    {% if has_patient_location %}
+                      <td>{% if item.distance_km != None %}{{ item.distance_km }}{% else %}Unknown{% endif %}</td>
+                    {% endif %}
+                    <td>
+                      {% if item.pharmacy.latitude != None and item.pharmacy.longitude != None %}
+                        {% if has_patient_location %}
+                          <a
+                            href="https://www.google.com/maps/dir/?api=1&amp;origin={{ patient_latitude }},{{ patient_longitude }}&amp;destination={{ item.pharmacy.latitude }},{{ item.pharmacy.longitude }}&amp;travelmode=driving"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >Directions</a>
+                        {% else %}
+                          <a
+                            href="https://www.google.com/maps/search/?api=1&amp;query={{ item.pharmacy.latitude }},{{ item.pharmacy.longitude }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >View map</a>
+                        {% endif %}
+                      {% else %}
+                        <span class="text-muted">No coordinates</span>
+                      {% endif %}
+                    </td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
+
+          {% if map_locations %}
+            <h2 class="h5 mt-4 mb-3">Pharmacy Locations</h2>
+            {% if google_maps_api_key %}
+              <div id="pharmacy-map" class="w-100 rounded border" style="height: 400px;" aria-label="Map showing pharmacies with this medicine"></div>
+              {{ map_locations|json_script:"pharmacy-map-data" }}
+              <script>
+                function initMedSpotMap() {
+                  const locations = JSON.parse(document.getElementById("pharmacy-map-data").textContent);
+                  const map = new google.maps.Map(document.getElementById("pharmacy-map"), {
+                    center: { lat: locations[0].lat, lng: locations[0].lng },
+                    zoom: 12
+                  });
+                  const bounds = new google.maps.LatLngBounds();
+                  const infoWindow = new google.maps.InfoWindow();
+
+                  locations.forEach((location) => {
+                    const position = { lat: location.lat, lng: location.lng };
+                    const marker = new google.maps.Marker({
+                      position: position,
+                      map: map,
+                      title: location.pharmacy_name
+                    });
+                    bounds.extend(position);
+
+                    marker.addListener("click", () => {
+                      infoWindow.setContent(
+                        "<strong>" + location.pharmacy_name + "</strong><br>" +
+                        location.address + "<br>" +
+                        location.medicine_name + " — quantity: " + location.quantity
+                      );
+                      infoWindow.open(map, marker);
+                    });
+                  });
+
+                  {% if has_patient_location %}
+                    const patientPosition = {
+                      lat: {{ patient_latitude }},
+                      lng: {{ patient_longitude }}
+                    };
+                    const patientMarker = new google.maps.Marker({
+                      position: patientPosition,
+                      map: map,
+                      title: "Your location",
+                      icon: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                    });
+                    bounds.extend(patientPosition);
+                  {% endif %}
+
+                  if (locations.length > 1{% if has_patient_location %} || true{% endif %}) {
+                    map.fitBounds(bounds);
+                  }
+                }
+              </script>
+              <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key|urlencode }}&amp;callback=initMedSpotMap"></script>
+            {% else %}
+              <div class="alert alert-info mt-2">
+                The Google Maps API key has not been configured yet. You can still use the map links beside each pharmacy.
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="alert alert-warning mt-3">
+              No pharmacy coordinates are available yet, so map markers and distance calculations cannot be shown.
+            </div>
+          {% endif %}
         {% else %}
           <div class="alert alert-info" role="status">
             No pharmacies found with this medicine. Check the spelling or try the active ingredient.
@@ -61,4 +189,37 @@
       {% endif %}
     </div>
   </div>
+
+  {% if query and results %}
+    <script>
+      document.getElementById("find-nearest-button").addEventListener("click", function () {
+        const status = document.getElementById("location-status");
+        const form = document.getElementById("medicine-search-form");
+
+        if (!navigator.geolocation) {
+          status.textContent = "Location sharing is not supported by this browser.";
+          return;
+        }
+
+        status.textContent = "Requesting your location...";
+        navigator.geolocation.getCurrentPosition(
+          function (position) {
+            document.getElementById("patient-latitude").value = position.coords.latitude;
+            document.getElementById("patient-longitude").value = position.coords.longitude;
+            form.submit();
+          },
+          function (error) {
+            if (error.code === error.PERMISSION_DENIED) {
+              status.textContent = "Location permission was denied. You can still view all matching pharmacies.";
+            } else if (error.code === error.TIMEOUT) {
+              status.textContent = "Getting your location timed out. Please try again.";
+            } else {
+              status.textContent = "Your location could not be obtained. Please try again.";
+            }
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        );
+      });
+    </script>
+  {% endif %}
 {% endblock %}
