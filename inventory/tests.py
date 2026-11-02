@@ -208,7 +208,11 @@ class InventoryCrudTests(TestCase):
 
         response = self.client.get(reverse("inventory:medicine_add"))
 
-        self.assertRedirects(response, reverse("users:access_denied"))
+        self.assertRedirects(
+            response,
+            reverse("users:access_denied"),
+            target_status_code=403,
+        )
 
     def test_patient_cannot_manage_inventory(self):
         patient = User.objects.create_user(
@@ -222,7 +226,11 @@ class InventoryCrudTests(TestCase):
 
         response = self.client.get(reverse("inventory:medicine_add"))
 
-        self.assertRedirects(response, reverse("users:access_denied"))
+        self.assertRedirects(
+            response,
+            reverse("users:access_denied"),
+            target_status_code=403,
+        )
 
     def test_anonymous_user_is_redirected_to_login(self):
         self.client.logout()
