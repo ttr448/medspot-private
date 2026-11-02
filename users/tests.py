@@ -371,10 +371,6 @@ class PatientSearchLocationEdgeCaseTests(TestCase):
         self.assertContains(response, "No pharmacy coordinates are available yet")
 
     def test_nearest_valid_pharmacy_is_selected_when_another_has_no_coordinates(self):
-        self.pharmacy.latitude = "15.600000"
-        self.pharmacy.longitude = "32.600000"
-        self.pharmacy.save(update_fields=["latitude", "longitude"])
-
         closer_user = User.objects.create_user(
             username="valid_coordinate_pharmacist",
             password="Very-Strong!Password-2026#",
