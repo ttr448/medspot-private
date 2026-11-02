@@ -230,3 +230,45 @@ class InventoryCrudTests(TestCase):
         response = self.client.get(reverse("inventory:medicine_add"))
 
         self.assertRedirects(response, reverse("users:login"))
+
+
+    def test_editing_stock_down_to_threshold_creates_low_stock_alert(self):
+        response = self.client.post(
+            reverse("inventory:medicine_edit", kwargs={"pk": self.inventory.pk}),
+            {"quantity": 5, "minimum_threshold": 5},
+        )
+
+        self.assertRedirects(response, reverse("pharmacies:dashboard"))
+        alert = Alert.objects.get(
+            pharmacy=self.pharmacy,
+            medicine=self.medicine,
+            alert_type="low_stock",
+        )
+        self.assertFalse(alert.acknowledged)
+        self.assertIn("5 available", alert.message)
+
+    def test_adding_medicine_at_zero_quantity_creates_low_stock_alert(self):
+        response = self.client.post(
+            reverse("inventory:medicine_add"),
+            {
+                "name": "New Medicine",
+                "category": "General",
+                "active_ingredient": "New Ingredient",
+                "dosage_form": "Tablet",
+                "quantity": 0,
+                "minimum_threshold": 5,
+            },
+        )
+
+        self.assertRedirects(response, reverse("pharmacies:dashboard"))
+        new_inventory = Inventory.objects.get(
+            pharmacy=self.pharmacy,
+            medicine__name="New Medicine",
+        )
+        alert = Alert.objects.get(
+            pharmacy=self.pharmacy,
+            medicine=new_inventory.medicine,
+            alert_type="low_stock",
+        )
+        self.assertFalse(alert.acknowledged)
+        self.assertIn("0 available", alert.message)
