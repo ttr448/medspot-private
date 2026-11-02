@@ -117,7 +117,11 @@ class PharmacistDashboardTests(TestCase):
 
         response = self.client.get(self.dashboard_url)
 
-        self.assertRedirects(response, reverse("users:access_denied"))
+        self.assertRedirects(
+            response,
+            reverse("users:access_denied"),
+            target_status_code=403,
+        )
 
     def test_unverified_pharmacist_cannot_access_dashboard(self):
         unverified = User.objects.create_user(
@@ -131,7 +135,11 @@ class PharmacistDashboardTests(TestCase):
 
         response = self.client.get(self.dashboard_url)
 
-        self.assertRedirects(response, reverse("users:access_denied"))
+        self.assertRedirects(
+            response,
+            reverse("users:access_denied"),
+            target_status_code=403,
+        )
 
     def test_anonymous_user_is_redirected_to_login(self):
         self.client.logout()
