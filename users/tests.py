@@ -171,3 +171,247 @@ class PatientMedicineSearchTests(TestCase):
         self.assertTrue(response.context["location_error"])
         self.assertFalse(response.context["has_patient_location"])
         self.assertEqual(list(response.context["results"]), [self.available_item])
+
+
+
+from decimal import Decimal
+
+from django.contrib.messages import get_messages
+
+
+class PatientRegistrationTests(TestCase):
+    def test_patient_can_register_successfully(self):
+        response = self.client.post(
+            reverse("users:register_patient"),
+            {
+                "username": "new_patient",
+                "email": "patient@example.com",
+                "first_name": "New",
+                "last_name": "Patient",
+                "password1": "Very-Strong!Password-2026#",
+                "password2": "Very-Strong!Password-2026#",
+            },
+        )
+
+        self.assertRedirects(response, reverse("users:login"))
+        user = User.objects.get(username="new_patient")
+        self.assertEqual(user.role, "patient")
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.is_verified)
+
+    def test_patient_registration_rejects_mismatched_passwords(self):
+        response = self.client.post(
+            reverse("users:register_patient"),
+            {
+                "username": "invalid_patient",
+                "email": "invalid@example.com",
+                "password1": "Very-Strong!Password-2026#",
+                "password2": "Different-Strong!Password-2026#",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="invalid_patient").exists())
+
+
+class PharmacistRegistrationAndLoginTests(TestCase):
+    def test_new_pharmacist_is_registered_pending_admin_approval(self):
+        response = self.client.post(
+            reverse("users:register_pharmacist"),
+            {
+                "username": "new_pharmacist",
+                "email": "pharmacist@example.com",
+                "first_name": "New",
+                "last_name": "Pharmacist",
+                "password1": "Very-Strong!Password-2026#",
+                "password2": "Very-Strong!Password-2026#",
+                "pharmacy_name": "New Pharmacy",
+                "pharmacy_address": "10 Main Street",
+                "latitude": "15.500000",
+                "longitude": "32.500000",
+            },
+        )
+
+        self.assertRedirects(response, reverse("users:login"))
+        pharmacist = User.objects.get(username="new_pharmacist")
+        self.assertEqual(pharmacist.role, "pharmacist")
+        self.assertFalse(pharmacist.is_active)
+        self.assertFalse(pharmacist.is_verified)
+
+        pharmacy = Pharmacy.objects.get(owner=pharmacist)
+        self.assertEqual(pharmacy.name, "New Pharmacy")
+        self.assertEqual(pharmacy.latitude, Decimal("15.500000"))
+        self.assertEqual(pharmacy.longitude, Decimal("32.500000"))
+
+    def test_pending_pharmacist_cannot_log_in(self):
+        pharmacist = User.objects.create_user(
+            username="pending_pharmacist",
+            password="Very-Strong!Password-2026#",
+            role="pharmacist",
+            is_active=False,
+            is_verified=False,
+        )
+
+        response = self.client.post(
+            reverse("users:login"),
+            {
+                "username": pharmacist.username,
+                "password": "Very-Strong!Password-2026#",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "pending admin approval")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_patient_login_redirects_to_patient_search(self):
+        patient = User.objects.create_user(
+            username="login_patient",
+            password="Very-Strong!Password-2026#",
+            role="patient",
+            is_active=True,
+            is_verified=True,
+        )
+
+        response = self.client.post(
+            reverse("users:login"),
+            {
+                "username": patient.username,
+                "password": "Very-Strong!Password-2026#",
+            },
+        )
+
+        self.assertRedirects(response, reverse("users:patient_search"))
+        self.assertEqual(int(self.client.session["_auth_user_id"]), patient.pk)
+
+    def test_verified_pharmacist_login_redirects_to_dashboard(self):
+        pharmacist = User.objects.create_user(
+            username="approved_pharmacist",
+            password="Very-Strong!Password-2026#",
+            role="pharmacist",
+            is_active=True,
+            is_verified=True,
+        )
+        Pharmacy.objects.create(
+            name="Approved Pharmacy",
+            address="20 Market Street",
+            owner=pharmacist,
+        )
+
+        response = self.client.post(
+            reverse("users:login"),
+            {
+                "username": pharmacist.username,
+                "password": "Very-Strong!Password-2026#",
+            },
+        )
+
+        self.assertRedirects(response, reverse("pharmacies:dashboard"))
+        self.assertEqual(int(self.client.session["_auth_user_id"]), pharmacist.pk)
+
+    def test_logout_ends_the_authenticated_session(self):
+        patient = User.objects.create_user(
+            username="logout_patient",
+            password="Very-Strong!Password-2026#",
+            role="patient",
+            is_active=True,
+            is_verified=True,
+        )
+        self.client.force_login(patient)
+
+        response = self.client.get(reverse("users:logout"))
+
+        self.assertRedirects(response, reverse("users:login"))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+
+class PatientSearchLocationEdgeCaseTests(TestCase):
+    def setUp(self):
+        self.patient = User.objects.create_user(
+            username="location_patient",
+            password="Very-Strong!Password-2026#",
+            role="patient",
+            is_active=True,
+            is_verified=True,
+        )
+        self.pharmacist = User.objects.create_user(
+            username="coordinate_pharmacist",
+            password="Very-Strong!Password-2026#",
+            role="pharmacist",
+            is_active=True,
+            is_verified=True,
+        )
+        self.pharmacy = Pharmacy.objects.create(
+            name="No Coordinates Pharmacy",
+            address="Unknown location",
+            owner=self.pharmacist,
+        )
+        self.medicine = Medicine.objects.create(
+            name="Location Test Medicine",
+            active_ingredient="Test Ingredient",
+        )
+        self.inventory = Inventory.objects.create(
+            pharmacy=self.pharmacy,
+            medicine=self.medicine,
+            quantity=7,
+        )
+        self.client.force_login(self.patient)
+        self.search_url = reverse("users:patient_search")
+
+    def test_pharmacy_without_coordinates_is_not_assigned_a_distance(self):
+        response = self.client.post(
+            self.search_url,
+            {"q": "Location Test Medicine", "lat": "15.5", "lng": "32.5"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["nearest_pharmacy"])
+        self.assertEqual(response.context["map_locations"], [])
+        self.assertIsNone(response.context["results"][0].distance_km)
+        self.assertContains(response, "No pharmacy coordinates are available yet")
+
+    def test_nearest_valid_pharmacy_is_selected_when_another_has_no_coordinates(self):
+        self.pharmacy.latitude = "15.600000"
+        self.pharmacy.longitude = "32.600000"
+        self.pharmacy.save(update_fields=["latitude", "longitude"])
+
+        closer_user = User.objects.create_user(
+            username="valid_coordinate_pharmacist",
+            password="Very-Strong!Password-2026#",
+            role="pharmacist",
+            is_active=True,
+            is_verified=True,
+        )
+        closer_pharmacy = Pharmacy.objects.create(
+            name="Valid Coordinates Pharmacy",
+            address="Known location",
+            latitude="15.501000",
+            longitude="32.501000",
+            owner=closer_user,
+        )
+        closer_inventory = Inventory.objects.create(
+            pharmacy=closer_pharmacy,
+            medicine=self.medicine,
+            quantity=4,
+        )
+
+        response = self.client.post(
+            self.search_url,
+            {"q": "Location Test Medicine", "lat": "15.500000", "lng": "32.500000"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["nearest_pharmacy"], closer_inventory)
+        self.assertEqual(response.context["results"][0], closer_inventory)
+        self.assertIsNone(response.context["results"][1].distance_km)
+
+    def test_only_one_coordinate_is_treated_as_invalid_location(self):
+        response = self.client.post(
+            self.search_url,
+            {"q": "Location Test Medicine", "lat": "15.5"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["location_error"])
+        self.assertFalse(response.context["has_patient_location"])
+        self.assertContains(response, "We could not read a valid location")
