@@ -3,6 +3,8 @@ import math
 
 from django.conf import settings
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
 from django.contrib import messages
 from django.contrib.auth import logout, get_user_model
 from django.contrib.auth.views import LoginView
@@ -12,6 +14,7 @@ from django.db.models import Q
 from .forms import PatientRegistrationForm, PharmacistRegistrationForm
 from users.decorators import role_required
 from inventory.models import Inventory
+from medicines.models import Medicine
 
 # Get the custom user model (CustomUser)
 User = get_user_model()
@@ -122,6 +125,42 @@ class CustomLogoutView(View):
         return redirect("users:login")
 
 
+@require_GET
+def medicine_suggestions(request):
+    """Return available medicine suggestions for the authenticated patient."""
+    if (
+        not request.user.is_authenticated
+        or getattr(request.user, "role", None) != "patient"
+    ):
+        return JsonResponse({"suggestions": []}, status=403)
+
+    query = request.GET.get("q", "").strip()
+    suggestions = []
+
+    if len(query) >= 2:
+        medicines = (
+            Medicine.objects.filter(
+                Q(name__icontains=query) | Q(active_ingredient__icontains=query),
+                inventories__quantity__gt=0,
+                inventories__pharmacy__owner__is_active=True,
+                inventories__pharmacy__owner__is_verified=True,
+                inventories__pharmacy__owner__role="pharmacist",
+            )
+            .distinct()
+            .order_by("name", "strength")[:8]
+        )
+        suggestions = [
+            {
+                "name": medicine.name,
+                "active_ingredient": medicine.active_ingredient or "",
+                "strength": medicine.strength or "",
+            }
+            for medicine in medicines
+        ]
+
+    return JsonResponse({"suggestions": suggestions})
+
+
 def patient_search(request):
     # Only logged-in patients can search for medicine.
     if not request.user.is_authenticated or getattr(request.user, "role", None) != "patient":
@@ -131,6 +170,7 @@ def patient_search(request):
     location_data = request.POST if request.method == "POST" else request.GET
     query = location_data.get("q", "").strip()
     strength = location_data.get("strength", "").strip()
+    show_hours = location_data.get("show_hours") == "1"
     patient_latitude = _parse_coordinate(location_data.get("lat"), -90, 90)
     patient_longitude = _parse_coordinate(location_data.get("lng"), -180, 180)
     has_patient_location = (
@@ -219,6 +259,7 @@ def patient_search(request):
         {
             "query": query,
             "strength": strength,
+            "show_hours": show_hours,
             "results": results,
             "map_locations": map_locations,
             "google_maps_api_key": settings.GOOGLE_MAPS_API_KEY,
