@@ -231,6 +231,26 @@ class InventoryCrudTests(TestCase):
             other_log.changes,
         )
 
+    def test_medicine_profile_edit_rejects_an_empty_medicine_name(self):
+        response = self.client.post(
+            reverse("inventory:medicine_edit", kwargs={"pk": self.inventory.pk}),
+            {
+                "name": "   ",
+                "active_ingredient": "Paracetamol",
+                "category": "Analgesic",
+                "strength": "500 mg",
+                "quantity": 8,
+                "minimum_threshold": 4,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.inventory.refresh_from_db()
+        self.medicine.refresh_from_db()
+        self.assertEqual(self.inventory.quantity, 20)
+        self.assertEqual(self.medicine.name, "Panadol")
+        self.assertContains(response, "Medicine name is required.")
+
     def test_submitting_unchanged_inventory_values_does_not_create_a_log(self):
         response = self.client.post(
             reverse("inventory:medicine_edit", kwargs={"pk": self.inventory.pk}),
