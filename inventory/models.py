@@ -29,6 +29,11 @@ class ImmutableQuerySet(models.QuerySet):
     def bulk_update(self, objs, fields, batch_size=None):
         raise ValidationError("Inventory update logs are immutable.")
 
+    def bulk_create(self, objs, **kwargs):
+        if kwargs.get("update_conflicts"):
+            raise ValidationError("Inventory update logs cannot be upserted.")
+        return super().bulk_create(objs, **kwargs)
+
 
 class ImmutableLogManager(models.Manager.from_queryset(ImmutableQuerySet)):
     pass
