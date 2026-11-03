@@ -1,6 +1,6 @@
 from datetime import datetime
 from unittest.mock import patch
-from zoneinfo import ZoneInfo
+from datetime import timezone as datetime_timezone
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -102,7 +102,7 @@ class PatientMedicineSearchTests(TestCase):
     def test_open_now_filter_returns_only_pharmacies_open_in_sudan_time(self, mocked_now):
         # 09:00 UTC is 11:00 in Khartoum.
         mocked_now.return_value = datetime(
-            2026, 11, 3, 9, 0, tzinfo=ZoneInfo("UTC")
+            2026, 11, 3, 9, 0, tzinfo=datetime_timezone.utc
         )
         self.pharmacy.working_hours = "Sat-Thu 08:00-22:00; Fri 16:00-22:00"
         self.pharmacy.save(update_fields=["working_hours"])
@@ -142,7 +142,7 @@ class PatientMedicineSearchTests(TestCase):
     @patch("users.views.timezone.now")
     def test_open_now_filter_excludes_pharmacies_without_valid_hours(self, mocked_now):
         mocked_now.return_value = datetime(
-            2026, 11, 3, 9, 0, tzinfo=ZoneInfo("UTC")
+            2026, 11, 3, 9, 0, tzinfo=datetime_timezone.utc
         )
         self.pharmacy.working_hours = ""
         self.pharmacy.save(update_fields=["working_hours"])
