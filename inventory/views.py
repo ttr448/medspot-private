@@ -85,24 +85,69 @@ def medicine_edit(request, pk):
         form = EditInventoryForm(request.POST)
         if form.is_valid():
             previous_was_low = inventory.quantity <= inventory.minimum_threshold
-            before_snapshot = inventory_snapshot(inventory)
             inventory.quantity = form.cleaned_data["quantity"]
             inventory.minimum_threshold = form.cleaned_data["minimum_threshold"]
+
+            # A Medicine record can be shared by several pharmacies. Keep a
+            # before-snapshot for each listing so every affected pharmacy gets
+            # an accurate audit entry when its shared profile is changed.
+            related_inventories = list(
+                Inventory.objects.filter(medicine=inventory.medicine)
+                .select_related("pharmacy", "medicine")
+            )
+            before_snapshots = {
+                item.pk: inventory_snapshot(item)
+                for item in related_inventories
+            }
+
+            medicine = inventory.medicine
+            if form.profile_submitted:
+                medicine.name = form.cleaned_data["name"]
+                medicine.active_ingredient = form.cleaned_data["active_ingredient"]
+                medicine.category = form.cleaned_data["category"]
+                medicine.strength = form.cleaned_data["strength"]
+
             with transaction.atomic():
+                if form.profile_submitted:
+                    medicine.save()
+
                 inventory.save()
-                record_inventory_change(
-                    inventory,
-                    request.user,
-                    "update",
-                    before_snapshot=before_snapshot,
-                    after_snapshot=inventory_snapshot(inventory),
+
+                for related_inventory in related_inventories:
+                    related_inventory.medicine = medicine
+                    if related_inventory.pk == inventory.pk:
+                        related_inventory.quantity = inventory.quantity
+                        related_inventory.minimum_threshold = inventory.minimum_threshold
+
+                    record_inventory_change(
+                        related_inventory,
+                        request.user,
+                        "update",
+                        before_snapshot=before_snapshots[related_inventory.pk],
+                        after_snapshot=inventory_snapshot(related_inventory),
+                    )
+
+            inventory.refresh_from_db()
+            update_low_stock_alert(
+                inventory,
+                request.user,
+                previous_was_low=previous_was_low,
+            )
+            if form.profile_submitted:
+                messages.success(
+                    request,
+                    "Medicine details and stock updated successfully.",
                 )
-            update_low_stock_alert(inventory, request.user, previous_was_low=previous_was_low)
-            messages.success(request, "Medicine updated successfully.")
+            else:
+                messages.success(request, "Medicine stock updated successfully.")
             return redirect("pharmacies:dashboard")
     else:
         form = EditInventoryForm(
             initial={
+                "name": inventory.medicine.name,
+                "active_ingredient": inventory.medicine.active_ingredient,
+                "category": inventory.medicine.category,
+                "strength": inventory.medicine.strength,
                 "quantity": inventory.quantity,
                 "minimum_threshold": inventory.minimum_threshold,
             }
