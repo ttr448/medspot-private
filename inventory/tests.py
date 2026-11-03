@@ -180,8 +180,14 @@ class InventoryCrudTests(TestCase):
         other_inventory = Inventory.objects.create(
             pharmacy=other_pharmacy,
             medicine=self.medicine,
-            quantity=9,
+            quantity=1,
             minimum_threshold=2,
+        )
+        other_alert = Alert.objects.create(
+            pharmacy=other_pharmacy,
+            medicine=self.medicine,
+            alert_type="low_stock",
+            message="Panadol is low in stock: 1 available; minimum threshold is 2.",
         )
 
         response = self.client.post(
@@ -227,9 +233,12 @@ class InventoryCrudTests(TestCase):
             other_log.changes,
         )
         self.assertNotIn(
-            {"field": "Quantity", "before": 9, "after": 8},
+            {"field": "Quantity", "before": 1, "after": 8},
             other_log.changes,
         )
+        other_alert.refresh_from_db()
+        self.assertIn("Panadol Extra", other_alert.message)
+        self.assertIn("1 available", other_alert.message)
 
     def test_medicine_profile_edit_rejects_an_empty_medicine_name(self):
         response = self.client.post(
