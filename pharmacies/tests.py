@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from alerts.models import Alert
-from inventory.models import Inventory
+from inventory.models import Inventory, InventoryLog
 from medicines.models import Medicine
 from pharmacies.models import Pharmacy
 
@@ -156,6 +156,47 @@ class PharmacistDashboardTests(TestCase):
             self.pharmacy.working_hours,
             "Sat-Thu 08:00-22:00; Fri 16:00-22:00",
         )
+
+    def test_dashboard_displays_only_its_pharmacy_inventory_history(self):
+        own_log = InventoryLog.objects.create(
+            source_inventory_id_snapshot=self.own_inventory.pk,
+            pharmacy_id_snapshot=self.pharmacy.pk,
+            pharmacy_name=self.pharmacy.name,
+            medicine_id_snapshot=self.medicine.pk,
+            medicine_name=self.medicine.name,
+            actor_id_snapshot=self.pharmacist.pk,
+            actor_username=self.pharmacist.username,
+            action="update",
+            changes=[{"field": "Quantity", "before": 20, "after": 4}],
+        )
+
+        other_user = User.objects.create_user(
+            username="other_history_pharmacist",
+            password="Strong-Test-Password-2026!",
+            role="pharmacist",
+            is_active=True,
+            is_verified=True,
+        )
+        other_log = InventoryLog.objects.create(
+            source_inventory_id_snapshot=98765,
+            pharmacy_id_snapshot=98765,
+            pharmacy_name="Other Pharmacy",
+            medicine_id_snapshot=98765,
+            medicine_name="Other Medicine",
+            actor_id_snapshot=other_user.pk,
+            actor_username=other_user.username,
+            action="delete",
+            changes=[],
+        )
+
+        response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["inventory_logs"]), [own_log])
+        self.assertContains(response, "Inventory update history")
+        self.assertContains(response, "Quantity")
+        self.assertNotContains(response, "Other Medicine")
+        self.assertNotIn(other_log, response.context["inventory_logs"])
 
     def test_anonymous_user_is_redirected_to_login(self):
         self.client.logout()
