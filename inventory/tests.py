@@ -407,3 +407,24 @@ class InventoryCrudTests(TestCase):
         )
         self.assertFalse(alert.acknowledged)
         self.assertIn("0 available", alert.message)
+
+
+class InventoryLogAdminTests(TestCase):
+    def test_admin_can_view_logs_but_cannot_add_change_or_delete_them(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+        from inventory.admin import InventoryLogAdmin
+
+        admin_user = User.objects.create_superuser(
+            username="audit_admin",
+            email="audit-admin@example.com",
+            password="Strong-Test-Password-2026!",
+        )
+        request = RequestFactory().get("/admin/inventory/inventorylog/")
+        request.user = admin_user
+        model_admin = InventoryLogAdmin(InventoryLog, AdminSite())
+
+        self.assertTrue(model_admin.has_view_permission(request))
+        self.assertFalse(model_admin.has_add_permission(request))
+        self.assertFalse(model_admin.has_change_permission(request))
+        self.assertFalse(model_admin.has_delete_permission(request))
