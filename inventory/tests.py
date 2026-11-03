@@ -123,6 +123,13 @@ class InventoryCrudTests(TestCase):
             Inventory.objects.filter(pharmacy=self.pharmacy, medicine=self.medicine).count(),
             1,
         )
+        self.assertEqual(
+            InventoryLog.objects.filter(
+                pharmacy_id_snapshot=self.pharmacy.pk,
+                medicine_name="Panadol",
+            ).count(),
+            1,
+        )
 
     def test_negative_quantity_is_rejected(self):
         response = self.client.post(
@@ -152,6 +159,15 @@ class InventoryCrudTests(TestCase):
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.quantity, 8)
         self.assertEqual(self.inventory.minimum_threshold, 4)
+
+    def test_submitting_unchanged_inventory_values_does_not_create_a_log(self):
+        response = self.client.post(
+            reverse("inventory:medicine_edit", kwargs={"pk": self.inventory.pk}),
+            {"quantity": 20, "minimum_threshold": 5},
+        )
+
+        self.assertRedirects(response, reverse("pharmacies:dashboard"))
+        self.assertFalse(InventoryLog.objects.exists())
 
     def test_editing_inventory_creates_audit_log_with_before_and_after_values(self):
         response = self.client.post(
@@ -257,6 +273,9 @@ class InventoryCrudTests(TestCase):
 
         with self.assertRaises(ValidationError):
             InventoryLog.objects.filter(pk=log.pk).delete()
+
+        with self.assertRaises(ValidationError):
+            InventoryLog.objects.bulk_update([log], ["actor_username"])
 
         log.refresh_from_db()
         self.assertEqual(log.actor_username, self.pharmacist.username)
