@@ -6,6 +6,15 @@
     {% if mode == "edit" %}Edit {{ medicine.name }}{% else %}Add Medicine{% endif %}
   </h1>
 
+  {% if mode == "edit" %}
+    <div class="alert alert-info">
+      Medicine name, active ingredient, category, and strength belong to the
+      shared medicine catalogue. Changes to these details will appear for
+      every pharmacy using this same medicine. Quantity and minimum threshold
+      apply only to your pharmacy.
+    </div>
+  {% endif %}
+
   <form method="post" novalidate>
     {% csrf_token %}
     {% for field in form %}
