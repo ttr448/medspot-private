@@ -3,7 +3,11 @@ from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
-from alerts.services import resolve_low_stock_alert, update_low_stock_alert
+from alerts.services import (
+    refresh_low_stock_alert_message,
+    resolve_low_stock_alert,
+    update_low_stock_alert,
+)
 from users.decorators import role_required
 from pharmacies.models import Pharmacy
 from medicines.models import Medicine
@@ -126,6 +130,8 @@ def medicine_edit(request, pk):
                         before_snapshot=before_snapshots[related_inventory.pk],
                         after_snapshot=inventory_snapshot(related_inventory),
                     )
+                    if form.profile_submitted:
+                        refresh_low_stock_alert_message(related_inventory)
 
             inventory.refresh_from_db()
             update_low_stock_alert(
