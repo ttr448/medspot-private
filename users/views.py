@@ -1,5 +1,6 @@
 # users/views.py
 import math
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.shortcuts import render, redirect
@@ -10,11 +11,13 @@ from django.contrib.auth import logout, get_user_model
 from django.contrib.auth.views import LoginView
 from django.views import View
 from django.db.models import Q
+from django.utils import timezone
 
 from .forms import PatientRegistrationForm, PharmacistRegistrationForm
 from users.decorators import role_required
 from inventory.models import Inventory
 from medicines.models import Medicine
+from pharmacies.working_hours import is_open_at
 
 # Get the custom user model (CustomUser)
 User = get_user_model()
@@ -171,6 +174,7 @@ def patient_search(request):
     query = location_data.get("q", "").strip()
     strength = location_data.get("strength", "").strip()
     show_hours = location_data.get("show_hours") == "1"
+    open_now = location_data.get("open_now") == "1"
     patient_latitude = _parse_coordinate(location_data.get("lat"), -90, 90)
     patient_longitude = _parse_coordinate(location_data.get("lng"), -180, 180)
     has_patient_location = (
@@ -200,6 +204,13 @@ def patient_search(request):
         )
         if strength:
             results = results.filter(medicine__strength__icontains=strength)
+
+        if open_now:
+            sudan_time = timezone.now().astimezone(ZoneInfo("Africa/Khartoum"))
+            results = [
+                item for item in results
+                if is_open_at(item.pharmacy.working_hours, sudan_time)
+            ]
 
     # Calculate distances only after the patient explicitly shares their location.
     if has_patient_location and query:
@@ -260,6 +271,7 @@ def patient_search(request):
             "query": query,
             "strength": strength,
             "show_hours": show_hours,
+            "open_now": open_now,
             "results": results,
             "map_locations": map_locations,
             "google_maps_api_key": settings.GOOGLE_MAPS_API_KEY,
