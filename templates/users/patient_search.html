@@ -152,10 +152,7 @@
               {{ map_locations|json_script:"pharmacy-map-data" }}
               <script>
                 async function initMedSpotMap() {
-                  const [{ Map }, { Route }] = await Promise.all([
-                    google.maps.importLibrary("maps"),
-                    google.maps.importLibrary("routes")
-                  ]);
+                  const { Map } = await google.maps.importLibrary("maps");
                   const locations = JSON.parse(document.getElementById("pharmacy-map-data").textContent);
                   const map = new Map(document.getElementById("pharmacy-map"), {
                     center: { lat: locations[0].lat, lng: locations[0].lng },
@@ -190,6 +187,7 @@
                       activeRoutePolylines = [];
 
                       try {
+                        const { Route } = await google.maps.importLibrary("routes");
                         const response = await Route.computeRoutes({
                           origin: patientPosition,
                           destination: { lat: location.lat, lng: location.lng },
