@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Delete Medicine{% endblock %}
+{% block title %}Remove Medicine{% endblock %}
 {% block content %}
-  <h1 class="h3 mb-3">Delete Medicine</h1>
-  <p>Are you sure you want to delete <strong>{{ inventory.medicine.name }}</strong> from your inventory?</p>
+  <h1 class="h3 mb-3">Remove Medicine from Pharmacy</h1>
+  <p>Are you sure you want to remove <strong>{{ inventory.medicine.name }}</strong> from your pharmacy's available medicines? The shared medicine profile and other pharmacies' listings will remain.</p>
 
   <form method="post">
     {% csrf_token %}
-    <button type="submit" class="btn btn-danger">Delete</button>
+    <button type="submit" class="btn btn-danger">Remove from pharmacy</button>
     <a href="{% url 'pharmacies:dashboard' %}" class="btn btn-link">Cancel</a>
   </form>
 {% endblock %}
