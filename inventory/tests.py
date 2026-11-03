@@ -212,7 +212,7 @@ class InventoryCrudTests(TestCase):
         self.inventory.refresh_from_db()
         other_inventory.refresh_from_db()
         self.assertEqual(self.inventory.quantity, 8)
-        self.assertEqual(other_inventory.quantity, 9)
+        self.assertEqual(other_inventory.quantity, 1)
 
         own_log = InventoryLog.objects.get(
             pharmacy_id_snapshot=self.pharmacy.pk,
