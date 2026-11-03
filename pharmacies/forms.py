@@ -1,6 +1,7 @@
 from django import forms
 
 from .models import Pharmacy
+from .working_hours import parse_working_hours
 
 
 class PharmacyWorkingHoursForm(forms.ModelForm):
@@ -17,3 +18,12 @@ class PharmacyWorkingHoursForm(forms.ModelForm):
                 }
             )
         }
+
+    def clean_working_hours(self):
+        value = (self.cleaned_data.get("working_hours") or "").strip()
+        if value:
+            try:
+                parse_working_hours(value)
+            except ValueError as error:
+                raise forms.ValidationError(str(error))
+        return value
