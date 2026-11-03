@@ -15,8 +15,8 @@ DAY_NUMBERS = {
 
 DAY_PATTERN = r"(Mon|Tue|Wed|Thu|Fri|Sat|Sun)"
 ENTRY_PATTERN = re.compile(
-    rf"^{DAY_PATTERN}(?:\\s*-\\s*{DAY_PATTERN})?\\s+"
-    r"(?:(\\d{1,2}:\\d{2})\\s*-\\s*(\\d{1,2}:\\d{2})|(Closed))$",
+    rf"^{DAY_PATTERN}(?:\s*-\s*{DAY_PATTERN})?\s+"
+    r"(?:(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})|(Closed))$",
     re.IGNORECASE,
 )
 
@@ -83,7 +83,7 @@ def parse_working_hours(value):
 
         if is_closed:
             for day in days:
-                schedule.setdefault(day, [])
+                schedule[day] = []
             continue
 
         start_minute = _minutes_from_time(start_text)
