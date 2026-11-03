@@ -43,6 +43,9 @@ def record_inventory_change(inventory, actor, action, before_snapshot=None, afte
                 }
             )
 
+    if not changes:
+        return None
+
     actor_id = getattr(actor, "pk", None)
     actor_username = actor.get_username() if actor and hasattr(actor, "get_username") else ""
 
