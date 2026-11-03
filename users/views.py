@@ -1,6 +1,5 @@
 # users/views.py
 import math
-from datetime import timedelta
 
 from django.conf import settings
 from django.shortcuts import render, redirect
@@ -206,7 +205,10 @@ def patient_search(request):
             results = results.filter(medicine__strength__icontains=strength)
 
         if open_now:
-            sudan_time = timezone.now().astimezone(timezone.get_fixed_timezone(120))
+            # Convert Django's UTC time to Sudan's UTC+02:00 local time.
+            sudan_time = timezone.now().astimezone(
+                timezone.get_fixed_timezone(120)
+            )
             results = [
                 item for item in results
                 if is_open_at(item.pharmacy.working_hours, sudan_time)
