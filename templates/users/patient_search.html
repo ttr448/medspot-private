@@ -186,6 +186,8 @@
                       routeRequestNumber += 1;
                       const currentRequest = routeRequestNumber;
                       routeStatus.textContent = "Calculating driving directions to " + location.pharmacy_name + "...";
+                      activeRoutePolylines.forEach((polyline) => polyline.setMap(null));
+                      activeRoutePolylines = [];
 
                       try {
                         const response = await Route.computeRoutes({
@@ -256,6 +258,9 @@
                         directionsPanel.appendChild(stepsList);
                         routeStatus.textContent = "Driving route displayed on the map.";
                       } catch (error) {
+                        if (currentRequest !== routeRequestNumber) {
+                          return;
+                        }
                         routeStatus.textContent =
                           "We could not calculate a route. Please use the Directions link in the results table.";
                         console.error("MedSpot route error:", error);
