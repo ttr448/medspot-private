@@ -24,6 +24,11 @@
           <div class="mb-2">
             {{ working_hours_form.working_hours.label_tag }}
             {{ working_hours_form.working_hours }}
+            {% if working_hours_form.working_hours.errors %}
+              <div class="text-danger small mt-1">
+                {{ working_hours_form.working_hours.errors }}
+              </div>
+            {% endif %}
           </div>
           <button type="submit" class="btn btn-outline-primary btn-sm">Save working hours</button>
         </form>
