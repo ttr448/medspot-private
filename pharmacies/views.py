@@ -1,5 +1,8 @@
 # pharmacies/views.py
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from django.contrib import messages
+
+from .forms import PharmacyWorkingHoursForm
 
 from alerts.models import Alert
 from users.decorators import role_required
@@ -12,6 +15,19 @@ from .models import Pharmacy
 def pharmacist_dashboard(request):
     """Display the verified pharmacist's own pharmacy and inventory."""
     pharmacy = Pharmacy.objects.filter(owner=request.user).first()
+
+    working_hours_form = PharmacyWorkingHoursForm(instance=pharmacy) if pharmacy else None
+
+    if (
+        request.method == "POST"
+        and pharmacy is not None
+        and "save_working_hours" in request.POST
+    ):
+        working_hours_form = PharmacyWorkingHoursForm(request.POST, instance=pharmacy)
+        if working_hours_form.is_valid():
+            working_hours_form.save()
+            messages.success(request, "Pharmacy working hours updated successfully.")
+            return redirect("pharmacies:dashboard")
 
     inventory_items = []
     low_stock_alerts = []
@@ -36,6 +52,7 @@ def pharmacist_dashboard(request):
         "pharmacies/dashboard.html",
         {
             "pharmacy": pharmacy,
+            "working_hours_form": working_hours_form,
             "inventory_items": inventory_items,
             "low_stock_alerts": low_stock_alerts,
         },
