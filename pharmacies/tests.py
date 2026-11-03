@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.test import TestCase
 from django.urls import reverse
 
 from alerts.models import Alert
@@ -156,6 +157,20 @@ class PharmacistDashboardTests(TestCase):
             self.pharmacy.working_hours,
             "Sat-Thu 08:00-22:00; Fri 16:00-22:00",
         )
+
+    def test_pharmacist_cannot_save_unrecognised_working_hours_format(self):
+        response = self.client.post(
+            self.dashboard_url,
+            {
+                "save_working_hours": "1",
+                "working_hours": "weekdays 8am to 10pm",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.pharmacy.refresh_from_db()
+        self.assertEqual(self.pharmacy.working_hours, "")
+        self.assertContains(response, "Use entries like")
 
     def test_dashboard_displays_only_its_pharmacy_inventory_history(self):
         own_log = InventoryLog.objects.create(
