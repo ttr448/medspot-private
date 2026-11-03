@@ -10,22 +10,28 @@
       </p>
 
       <form id="medicine-search-form" method="get" action="{% url 'users:patient_search' %}" class="mb-3">
-        <div class="input-group">
-          <input
-            type="search"
-            class="form-control"
-            name="q"
-            value="{{ query }}"
-            placeholder="e.g. Panadol or Paracetamol"
-            aria-label="Medicine name or active ingredient"
-          >
-          <button class="btn btn-primary" type="submit">Search</button>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-8">
+            <label for="medicine-query" class="form-label">Medicine name or active ingredient</label>
+            <input id="medicine-query" type="search" class="form-control" name="q"
+                   value="{{ query }}" placeholder="e.g. Panadol or Paracetamol"
+                   aria-label="Medicine name or active ingredient">
+          </div>
+          <div class="col-md-3">
+            <label for="medicine-strength" class="form-label">Strength (optional)</label>
+            <input id="medicine-strength" type="text" class="form-control" name="strength"
+                   value="{{ strength }}" placeholder="e.g. 500 mg" aria-label="Medicine strength">
+          </div>
+          <div class="col-md-1 d-grid">
+            <button class="btn btn-primary" type="submit">Search</button>
+          </div>
         </div>
       </form>
 
       <form id="nearest-search-form" method="post" action="{% url 'users:patient_search' %}" class="d-none">
         {% csrf_token %}
         <input type="hidden" name="q" value="{{ query }}">
+        <input type="hidden" name="strength" value="{{ strength }}">
         <input id="patient-latitude" type="hidden" name="lat">
         <input id="patient-longitude" type="hidden" name="lng">
       </form>
@@ -70,7 +76,7 @@
                 <tr>
                   <th scope="col">Medicine</th>
                   <th scope="col">Active ingredient</th>
-                  <th scope="col">Dosage form</th>
+                  <th scope="col">Strength</th>
                   <th scope="col">Pharmacy</th>
                   <th scope="col">Address</th>
                   <th scope="col">Quantity available</th>
@@ -83,7 +89,7 @@
                   <tr>
                     <td>{{ item.medicine.name }}</td>
                     <td>{{ item.medicine.active_ingredient|default:"—" }}</td>
-                    <td>{{ item.medicine.dosage_form|default:"—" }}</td>
+                    <td>{{ item.medicine.strength|default:"—" }}</td>
                     <td>
                       {{ item.pharmacy.name }}
                       {% if forloop.first and nearest_pharmacy and item.distance_km != None %}

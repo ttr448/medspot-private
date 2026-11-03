@@ -17,7 +17,7 @@ class AddMedicineForm(forms.Form):
     name = forms.CharField(max_length=255, label="Medicine name")
     category = forms.CharField(max_length=255, required=False)
     active_ingredient = forms.CharField(max_length=255, required=False)
-    dosage_form = forms.CharField(max_length=100, required=False, label="Dosage form (e.g. tablet, syrup)")
+    strength = forms.CharField(max_length=100, label="Strength (e.g. 500 mg)")
     quantity = forms.IntegerField(min_value=0)
     minimum_threshold = forms.IntegerField(min_value=0, required=False, initial=0)
 

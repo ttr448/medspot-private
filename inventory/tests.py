@@ -29,7 +29,7 @@ class InventoryCrudTests(TestCase):
             name="Panadol",
             active_ingredient="Paracetamol",
             category="Analgesic",
-            dosage_form="Tablet",
+            strength="500 mg",
         )
         self.inventory = Inventory.objects.create(
             pharmacy=self.pharmacy,
@@ -52,7 +52,7 @@ class InventoryCrudTests(TestCase):
                 "name": "Amoxicillin",
                 "category": "Antibiotic",
                 "active_ingredient": "Amoxicillin",
-                "dosage_form": "Capsule",
+                "strength": "250 mg",
                 "quantity": 12,
                 "minimum_threshold": 3,
             },
@@ -65,13 +65,14 @@ class InventoryCrudTests(TestCase):
         )
         self.assertEqual(added_item.quantity, 12)
         self.assertEqual(added_item.minimum_threshold, 3)
+        self.assertEqual(added_item.medicine.strength, "250 mg")
 
     def test_duplicate_medicine_cannot_be_added_twice_to_same_pharmacy(self):
         data = {
             "name": "Panadol",
             "category": "Analgesic",
             "active_ingredient": "Paracetamol",
-            "dosage_form": "Tablet",
+            "strength": "500 mg",
             "quantity": 15,
             "minimum_threshold": 5,
         }
@@ -93,7 +94,7 @@ class InventoryCrudTests(TestCase):
                 "name": "Amoxicillin",
                 "category": "Antibiotic",
                 "active_ingredient": "Amoxicillin",
-                "dosage_form": "Capsule",
+                "strength": "250 mg",
                 "quantity": -1,
                 "minimum_threshold": 3,
             },
@@ -262,7 +263,7 @@ class InventoryCrudTests(TestCase):
                 "name": "New Medicine",
                 "category": "General",
                 "active_ingredient": "New Ingredient",
-                "dosage_form": "Tablet",
+                "strength": "500 mg",
                 "quantity": 0,
                 "minimum_threshold": 5,
             },

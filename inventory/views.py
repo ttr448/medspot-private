@@ -31,12 +31,12 @@ def medicine_add(request):
             medicine, _ = Medicine.objects.get_or_create(
                 name__iexact=data["name"],
                 active_ingredient__iexact=data["active_ingredient"],
-                dosage_form__iexact=data["dosage_form"],
+                strength__iexact=data["strength"],
                 defaults={
                     "name": data["name"],
                     "category": data["category"],
                     "active_ingredient": data["active_ingredient"],
-                    "dosage_form": data["dosage_form"],
+                    "strength": data["strength"],
                 },
             )
 

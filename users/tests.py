@@ -34,7 +34,7 @@ class PatientMedicineSearchTests(TestCase):
             name="Panadol",
             active_ingredient="Paracetamol",
             category="Analgesic",
-            dosage_form="Tablet",
+            strength="500 mg",
         )
         self.available_item = Inventory.objects.create(
             pharmacy=self.pharmacy,
@@ -52,7 +52,31 @@ class PatientMedicineSearchTests(TestCase):
         self.assertContains(response, "ABC Pharmacy")
         self.assertContains(response, "123 Main Street")
         self.assertContains(response, "25")
+        self.assertContains(response, "500 mg")
         self.assertEqual(list(response.context["results"]), [self.available_item])
+
+    def test_patient_can_filter_search_by_medicine_strength(self):
+        another_medicine = Medicine.objects.create(
+            name="Panadol",
+            active_ingredient="Paracetamol",
+            category="Analgesic",
+            strength="250 mg",
+        )
+        Inventory.objects.create(
+            pharmacy=self.pharmacy,
+            medicine=another_medicine,
+            quantity=8,
+        )
+
+        response = self.client.get(
+            self.search_url,
+            {"q": "Panadol", "strength": "500 mg"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["results"]), [self.available_item])
+        self.assertContains(response, "500 mg")
+        self.assertNotContains(response, "250 mg")
 
     def test_patient_can_search_by_active_ingredient(self):
         response = self.client.get(self.search_url, {"q": "paracetamol"})

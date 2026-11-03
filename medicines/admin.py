@@ -3,5 +3,5 @@ from .models import Medicine
 
 @admin.register(Medicine)
 class MedicineAdmin(admin.ModelAdmin):
-    list_display = ("name", "active_ingredient", "category", "dosage_form")
+    list_display = ("name", "strength", "active_ingredient", "category")
     search_fields = ("name", "active_ingredient", "category")

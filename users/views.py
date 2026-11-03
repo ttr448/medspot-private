@@ -130,6 +130,7 @@ def patient_search(request):
 
     location_data = request.POST if request.method == "POST" else request.GET
     query = location_data.get("q", "").strip()
+    strength = location_data.get("strength", "").strip()
     patient_latitude = _parse_coordinate(location_data.get("lat"), -90, 90)
     patient_longitude = _parse_coordinate(location_data.get("lng"), -180, 180)
     has_patient_location = (
@@ -157,6 +158,8 @@ def patient_search(request):
             .select_related("medicine", "pharmacy")
             .order_by("medicine__name", "pharmacy__name")
         )
+        if strength:
+            results = results.filter(medicine__strength__icontains=strength)
 
     # Calculate distances only after the patient explicitly shares their location.
     if has_patient_location and query:
@@ -215,6 +218,7 @@ def patient_search(request):
         "users/patient_search.html",
         {
             "query": query,
+            "strength": strength,
             "results": results,
             "map_locations": map_locations,
             "google_maps_api_key": settings.GOOGLE_MAPS_API_KEY,
