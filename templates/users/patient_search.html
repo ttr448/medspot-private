@@ -136,16 +136,132 @@
             <h2 class="h5 mt-4 mb-3">Pharmacy Locations</h2>
             {% if google_maps_api_key %}
               <div id="pharmacy-map" class="w-100 rounded border" style="height: 400px;" aria-label="Map showing pharmacies with this medicine"></div>
+              {% if has_patient_location %}
+                <div class="mt-3">
+                  <h3 class="h6">Driving directions</h3>
+                  <p id="route-status" class="small text-muted" role="status" aria-live="polite">
+                    Select a pharmacy marker on the map to calculate a driving route from your location.
+                  </p>
+                  <div id="directions-panel" class="border rounded p-3"></div>
+                </div>
+              {% else %}
+                <p class="small text-muted mt-2">
+                  Share your location to calculate a route inside MedSpot. You can still open a pharmacy in Google Maps using the links above.
+                </p>
+              {% endif %}
               {{ map_locations|json_script:"pharmacy-map-data" }}
               <script>
-                function initMedSpotMap() {
+                async function initMedSpotMap() {
+                  const [{ Map }, { Route }] = await Promise.all([
+                    google.maps.importLibrary("maps"),
+                    google.maps.importLibrary("routes")
+                  ]);
                   const locations = JSON.parse(document.getElementById("pharmacy-map-data").textContent);
-                  const map = new google.maps.Map(document.getElementById("pharmacy-map"), {
+                  const map = new Map(document.getElementById("pharmacy-map"), {
                     center: { lat: locations[0].lat, lng: locations[0].lng },
                     zoom: 12
                   });
                   const bounds = new google.maps.LatLngBounds();
                   const infoWindow = new google.maps.InfoWindow();
+                  let activeRoutePolylines = [];
+                  let routeRequestNumber = 0;
+
+                  {% if has_patient_location %}
+                    const patientPosition = {
+                      lat: {{ patient_latitude }},
+                      lng: {{ patient_longitude }}
+                    };
+                    const routeStatus = document.getElementById("route-status");
+                    const directionsPanel = document.getElementById("directions-panel");
+
+                    new google.maps.Marker({
+                      position: patientPosition,
+                      map: map,
+                      title: "Your location",
+                      icon: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                    });
+                    bounds.extend(patientPosition);
+
+                    async function showDrivingRoute(location) {
+                      routeRequestNumber += 1;
+                      const currentRequest = routeRequestNumber;
+                      routeStatus.textContent = "Calculating driving directions to " + location.pharmacy_name + "...";
+
+                      try {
+                        const response = await Route.computeRoutes({
+                          origin: patientPosition,
+                          destination: { lat: location.lat, lng: location.lng },
+                          travelMode: "DRIVING",
+                          fields: [
+                            "path",
+                            "distanceMeters",
+                            "durationMillis",
+                            "legs.steps.instructions",
+                            "legs.steps.distanceMeters"
+                          ]
+                        });
+
+                        if (currentRequest !== routeRequestNumber) {
+                          return;
+                        }
+
+                        const route = response.routes && response.routes[0];
+                        if (!route) {
+                          throw new Error("No route was returned.");
+                        }
+
+                        activeRoutePolylines.forEach((polyline) => polyline.setMap(null));
+                        activeRoutePolylines = route.createPolylines();
+                        activeRoutePolylines.forEach((polyline) => polyline.setMap(map));
+
+                        const routeBounds = new google.maps.LatLngBounds();
+                        route.path.forEach((point) => routeBounds.extend(point));
+                        map.fitBounds(routeBounds);
+
+                        directionsPanel.replaceChildren();
+                        const summary = document.createElement("p");
+                        summary.className = "fw-semibold";
+                        const distanceKm = Number.isFinite(route.distanceMeters)
+                          ? (route.distanceMeters / 1000).toFixed(1) + " km"
+                          : "";
+                        const durationMinutes = Number.isFinite(route.durationMillis)
+                          ? Math.round(route.durationMillis / 60000) + " min"
+                          : "";
+                        summary.textContent = [
+                          "Route to " + location.pharmacy_name,
+                          distanceKm,
+                          durationMinutes
+                        ].filter(Boolean).join(" — ");
+                        directionsPanel.appendChild(summary);
+
+                        const stepsList = document.createElement("ol");
+                        stepsList.className = "mb-0";
+                        (route.legs || []).forEach((leg) => {
+                          (leg.steps || []).forEach((step) => {
+                            const stepItem = document.createElement("li");
+                            stepItem.className = "mb-2";
+                            const instruction = document.createElement("span");
+                            instruction.textContent = step.instructions || "Continue along the route.";
+                            stepItem.appendChild(instruction);
+
+                            if (Number.isFinite(step.distanceMeters)) {
+                              const distance = document.createElement("small");
+                              distance.className = "text-muted ms-2";
+                              distance.textContent = "(" + step.distanceMeters + " m)";
+                              stepItem.appendChild(distance);
+                            }
+                            stepsList.appendChild(stepItem);
+                          });
+                        });
+                        directionsPanel.appendChild(stepsList);
+                        routeStatus.textContent = "Driving route displayed on the map.";
+                      } catch (error) {
+                        routeStatus.textContent =
+                          "We could not calculate a route. Please use the Directions link in the results table.";
+                        console.error("MedSpot route error:", error);
+                      }
+                    }
+                  {% endif %}
 
                   locations.forEach((location) => {
                     const position = { lat: location.lat, lng: location.lng };
@@ -169,22 +285,12 @@
                       infoContent.append(pharmacyTitle, address, medicine);
                       infoWindow.setContent(infoContent);
                       infoWindow.open(map, marker);
+
+                      {% if has_patient_location %}
+                        showDrivingRoute(location);
+                      {% endif %}
                     });
                   });
-
-                  {% if has_patient_location %}
-                    const patientPosition = {
-                      lat: {{ patient_latitude }},
-                      lng: {{ patient_longitude }}
-                    };
-                    const patientMarker = new google.maps.Marker({
-                      position: patientPosition,
-                      map: map,
-                      title: "Your location",
-                      icon: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-                    });
-                    bounds.extend(patientPosition);
-                  {% endif %}
 
                   if (locations.length > 1) {
                     map.fitBounds(bounds);
