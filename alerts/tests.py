@@ -29,7 +29,7 @@ class LowStockAlertTests(TestCase):
         self.medicine = Medicine.objects.create(
             name="Panadol",
             active_ingredient="Paracetamol",
-            dosage_form="Tablet",
+            strength="500 mg",
         )
         self.inventory = Inventory.objects.create(
             pharmacy=self.pharmacy,

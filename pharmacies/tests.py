@@ -28,7 +28,7 @@ class PharmacistDashboardTests(TestCase):
         self.medicine = Medicine.objects.create(
             name="Panadol",
             active_ingredient="Paracetamol",
-            dosage_form="Tablet",
+            strength="500 mg",
         )
         self.own_inventory = Inventory.objects.create(
             pharmacy=self.pharmacy,
