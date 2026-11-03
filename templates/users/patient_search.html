@@ -42,6 +42,14 @@
             Show pharmacy working hours in results
           </label>
         </div>
+        <div class="form-check mt-1">
+          <input class="form-check-input" type="checkbox" id="open-now-filter"
+                 name="open_now" value="1" {% if open_now %}checked{% endif %}>
+          <label class="form-check-label" for="open-now-filter">
+            Only show pharmacies open now
+          </label>
+          <div class="form-text">Based on the working hours entered by each pharmacy and Sudan local time.</div>
+        </div>
       </form>
       <p id="location-status" class="small text-muted mt-2" role="status" aria-live="polite">
         {% if has_patient_location %}
@@ -208,7 +216,11 @@
           {% endif %}
         {% else %}
           <div class="alert alert-info" role="status">
-            No pharmacies found with this medicine. Check the spelling or try the active ingredient.
+            {% if open_now %}
+              No pharmacies with this medicine are currently marked as open. Check the entered working hours or turn off the open-now filter.
+            {% else %}
+              No pharmacies found with this medicine. Check the spelling or try the active ingredient.
+            {% endif %}
           </div>
         {% endif %}
       {% else %}
