@@ -62,6 +62,35 @@ def update_low_stock_alert(inventory, user, previous_was_low=None):
     return alert
 
 
+def refresh_low_stock_alert_message(inventory):
+    """Update an active low-stock message after a shared medicine profile changes."""
+    if inventory.quantity > inventory.minimum_threshold:
+        return None
+
+    alert = (
+        Alert.objects.filter(
+            pharmacy=inventory.pharmacy,
+            medicine=inventory.medicine,
+            alert_type="low_stock",
+            acknowledged=False,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if alert is None:
+        return None
+
+    message = (
+        f"{inventory.medicine.name} is low in stock: "
+        f"{inventory.quantity} available; minimum threshold is "
+        f"{inventory.minimum_threshold}."
+    )
+    if alert.message != message:
+        alert.message = message
+        alert.save(update_fields=["message"])
+    return alert
+
+
 def resolve_low_stock_alert(inventory):
     """Close an active alert when the pharmacy removes the medicine from stock."""
     Alert.objects.filter(
