@@ -96,29 +96,3 @@ def parse_working_hours(value):
             schedule.setdefault(day, []).append((start_minute, end_minute))
 
     return schedule
-
-
-def is_open_at(value, current_datetime):
-    """Return True if the pharmacy is open at the supplied local datetime."""
-    try:
-        schedule = parse_working_hours(value)
-    except ValueError:
-        return False
-
-    current_day = current_datetime.weekday()
-    current_minute = current_datetime.hour * 60 + current_datetime.minute
-    previous_day = (current_day - 1) % 7
-
-    for start_minute, end_minute in schedule.get(current_day, []):
-        if start_minute < end_minute:
-            if start_minute <= current_minute < end_minute:
-                return True
-        elif current_minute >= start_minute:
-            return True
-
-    # An overnight period that started yesterday may still be active.
-    for start_minute, end_minute in schedule.get(previous_day, []):
-        if start_minute > end_minute and current_minute < end_minute:
-            return True
-
-    return False
