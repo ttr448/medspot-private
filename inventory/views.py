@@ -10,6 +10,7 @@ from medicines.models import Medicine
 
 from .forms import AddMedicineForm, EditInventoryForm
 from .models import Inventory
+from .services import inventory_snapshot, record_inventory_change
 
 
 def _get_owned_pharmacy(request):
@@ -48,6 +49,13 @@ def medicine_add(request):
                         quantity=data["quantity"],
                         minimum_threshold=data["minimum_threshold"],
                     )
+                    record_inventory_change(
+                        inventory,
+                        request.user,
+                        "create",
+                        before_snapshot={},
+                        after_snapshot=inventory_snapshot(inventory),
+                    )
             except IntegrityError:
                 messages.error(
                     request,
@@ -77,9 +85,18 @@ def medicine_edit(request, pk):
         form = EditInventoryForm(request.POST)
         if form.is_valid():
             previous_was_low = inventory.quantity <= inventory.minimum_threshold
+            before_snapshot = inventory_snapshot(inventory)
             inventory.quantity = form.cleaned_data["quantity"]
             inventory.minimum_threshold = form.cleaned_data["minimum_threshold"]
-            inventory.save()
+            with transaction.atomic():
+                inventory.save()
+                record_inventory_change(
+                    inventory,
+                    request.user,
+                    "update",
+                    before_snapshot=before_snapshot,
+                    after_snapshot=inventory_snapshot(inventory),
+                )
             update_low_stock_alert(inventory, request.user, previous_was_low=previous_was_low)
             messages.success(request, "Medicine updated successfully.")
             return redirect("pharmacies:dashboard")
@@ -109,8 +126,17 @@ def medicine_delete(request, pk):
 
     if request.method == "POST":
         medicine_name = inventory.medicine.name
-        resolve_low_stock_alert(inventory)
-        inventory.delete()
+        before_snapshot = inventory_snapshot(inventory)
+        with transaction.atomic():
+            resolve_low_stock_alert(inventory)
+            record_inventory_change(
+                inventory,
+                request.user,
+                "delete",
+                before_snapshot=before_snapshot,
+                after_snapshot={},
+            )
+            inventory.delete()
         messages.success(request, f"{medicine_name} deleted successfully.")
         return redirect("pharmacies:dashboard")
 
