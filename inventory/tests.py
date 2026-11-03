@@ -164,6 +164,73 @@ class InventoryCrudTests(TestCase):
         self.assertEqual(self.inventory.quantity, 8)
         self.assertEqual(self.inventory.minimum_threshold, 4)
 
+    def test_pharmacist_can_edit_medicine_profile_and_shared_pharmacy_logs_are_created(self):
+        other_user = User.objects.create_user(
+            username="second_pharmacist",
+            password="Strong-Test-Password-2026!",
+            role="pharmacist",
+            is_active=True,
+            is_verified=True,
+        )
+        other_pharmacy = Pharmacy.objects.create(
+            name="Other Pharmacy",
+            address="456 Side Street",
+            owner=other_user,
+        )
+        other_inventory = Inventory.objects.create(
+            pharmacy=other_pharmacy,
+            medicine=self.medicine,
+            quantity=9,
+            minimum_threshold=2,
+        )
+
+        response = self.client.post(
+            reverse("inventory:medicine_edit", kwargs={"pk": self.inventory.pk}),
+            {
+                "name": "Panadol Extra",
+                "active_ingredient": "Paracetamol",
+                "category": "Pain relief",
+                "strength": "650 mg",
+                "quantity": 8,
+                "minimum_threshold": 4,
+            },
+        )
+
+        self.assertRedirects(response, reverse("pharmacies:dashboard"))
+        self.medicine.refresh_from_db()
+        self.assertEqual(self.medicine.name, "Panadol Extra")
+        self.assertEqual(self.medicine.active_ingredient, "Paracetamol")
+        self.assertEqual(self.medicine.category, "Pain relief")
+        self.assertEqual(self.medicine.strength, "650 mg")
+
+        self.inventory.refresh_from_db()
+        other_inventory.refresh_from_db()
+        self.assertEqual(self.inventory.quantity, 8)
+        self.assertEqual(other_inventory.quantity, 9)
+
+        own_log = InventoryLog.objects.get(
+            pharmacy_id_snapshot=self.pharmacy.pk,
+            source_inventory_id_snapshot=self.inventory.pk,
+            action="update",
+        )
+        other_log = InventoryLog.objects.get(
+            pharmacy_id_snapshot=other_pharmacy.pk,
+            source_inventory_id_snapshot=other_inventory.pk,
+            action="update",
+        )
+        self.assertIn(
+            {"field": "Medicine name", "before": "Panadol", "after": "Panadol Extra"},
+            own_log.changes,
+        )
+        self.assertIn(
+            {"field": "Strength", "before": "500 mg", "after": "650 mg"},
+            other_log.changes,
+        )
+        self.assertNotIn(
+            {"field": "Quantity", "before": 9, "after": 8},
+            other_log.changes,
+        )
+
     def test_submitting_unchanged_inventory_values_does_not_create_a_log(self):
         response = self.client.post(
             reverse("inventory:medicine_edit", kwargs={"pk": self.inventory.pk}),
