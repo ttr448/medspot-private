@@ -46,6 +46,50 @@
       </div>
     {% endif %}
 
+    <div class="card mb-4">
+      <div class="card-body">
+        <h2 class="h5">Inventory update history</h2>
+        <p class="text-muted small">This history records who changed stock, when it happened, and the values before and after each operation. Records cannot be edited or deleted in the application.</p>
+        {% if inventory_logs %}
+          <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle">
+              <thead>
+                <tr>
+                  <th>Date and time</th>
+                  <th>Medicine</th>
+                  <th>Action</th>
+                  <th>User</th>
+                  <th>Changes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for log in inventory_logs %}
+                  <tr>
+                    <td>{{ log.timestamp|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ log.medicine_name }}</td>
+                    <td>{{ log.get_action_display }}</td>
+                    <td>{{ log.actor_username }} (ID: {{ log.actor_id_snapshot|default_if_none:"—" }})</td>
+                    <td>
+                      {% for change in log.changes %}
+                        <div><strong>{{ change.field }}:</strong>
+                          {{ change.before|default_if_none:"—" }} &rarr;
+                          {{ change.after|default_if_none:"—" }}
+                        </div>
+                      {% empty %}
+                        —
+                      {% endfor %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">No inventory changes have been recorded yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
     <div class="table-responsive">
       <table class="table table-striped align-middle">
         <thead>
