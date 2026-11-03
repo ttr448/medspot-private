@@ -1,14 +1,10 @@
 # inventory/forms.py
 """
-Sprint 2 forms for inventory CRUD.
+Forms for adding medicines and editing a pharmacy's medicine availability.
 
-Two separate forms rather than one shared form, because Add and Edit need
-different fields:
-  - Add needs the full medicine description (it may be creating a brand
-    new Medicine catalog entry).
-  - Edit only touches this pharmacy's stock numbers (quantity and
-    minimum_threshold), per the Sprint 2 requirement ("at minimum, update
-    quantity / minimum threshold").
+The edit form includes both the shared medicine profile and this pharmacy's
+stock values. Profile changes are recorded for every pharmacy using that
+shared catalogue entry.
 """
 from django import forms
 
@@ -33,8 +29,49 @@ class AddMedicineForm(forms.Form):
 
 
 class EditInventoryForm(forms.Form):
-    quantity = forms.IntegerField(min_value=0)
-    minimum_threshold = forms.IntegerField(min_value=0, required=False, initial=0)
+    PROFILE_FIELDS = ("name", "active_ingredient", "category", "strength")
+
+    name = forms.CharField(
+        max_length=255,
+        required=False,
+        label="Medicine name",
+    )
+    active_ingredient = forms.CharField(
+        max_length=255,
+        required=False,
+        label="Active ingredient",
+    )
+    category = forms.CharField(max_length=255, required=False)
+    strength = forms.CharField(
+        max_length=100,
+        required=False,
+        label="Strength (e.g. 500 mg)",
+    )
+    quantity = forms.IntegerField(min_value=0, label="Available quantity")
+    minimum_threshold = forms.IntegerField(
+        min_value=0,
+        required=False,
+        initial=0,
+        label="Minimum stock threshold",
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        self.profile_submitted = any(
+            field in self.data for field in self.PROFILE_FIELDS
+        )
+
+        if self.profile_submitted:
+            medicine_name = (cleaned_data.get("name") or "").strip()
+            if not medicine_name:
+                self.add_error("name", "Medicine name is required.")
+            else:
+                cleaned_data["name"] = medicine_name
+
+            for field in ("active_ingredient", "category", "strength"):
+                cleaned_data[field] = (cleaned_data.get(field) or "").strip()
+
+        return cleaned_data
 
     def clean_minimum_threshold(self):
         value = self.cleaned_data.get("minimum_threshold")
