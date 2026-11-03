@@ -233,8 +233,8 @@ class InventoryCrudTests(TestCase):
             other_log.changes,
         )
         self.assertNotIn(
-            {"field": "Quantity", "before": 1, "after": 8},
-            other_log.changes,
+            "Quantity",
+            [change["field"] for change in other_log.changes],
         )
         other_alert.refresh_from_db()
         self.assertIn("Panadol Extra", other_alert.message)
