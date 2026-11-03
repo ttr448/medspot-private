@@ -137,7 +137,7 @@ class PatientMedicineSearchTests(TestCase):
         response = self.client.get(self.search_url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "requestLocation();")
+        self.assertContains(response, "requestLocation().then(function (coordinates)")
         self.assertNotContains(response, "Find Nearest Pharmacy")
 
     def test_patient_can_search_by_active_ingredient(self):
