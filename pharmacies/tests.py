@@ -141,6 +141,22 @@ class PharmacistDashboardTests(TestCase):
             target_status_code=403,
         )
 
+    def test_pharmacist_can_update_own_pharmacy_working_hours(self):
+        response = self.client.post(
+            self.dashboard_url,
+            {
+                "save_working_hours": "1",
+                "working_hours": "Sat-Thu 08:00-22:00; Fri 16:00-22:00",
+            },
+        )
+
+        self.assertRedirects(response, self.dashboard_url)
+        self.pharmacy.refresh_from_db()
+        self.assertEqual(
+            self.pharmacy.working_hours,
+            "Sat-Thu 08:00-22:00; Fri 16:00-22:00",
+        )
+
     def test_anonymous_user_is_redirected_to_login(self):
         self.client.logout()
 
