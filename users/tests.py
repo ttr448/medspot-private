@@ -1,3 +1,7 @@
+from datetime import datetime
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -93,6 +97,64 @@ class PatientMedicineSearchTests(TestCase):
         self.assertEqual(hours_response.status_code, 200)
         self.assertTrue(hours_response.context["show_hours"])
         self.assertContains(hours_response, "Sat-Thu 08:00-22:00")
+
+    @patch("users.views.timezone.now")
+    def test_open_now_filter_returns_only_pharmacies_open_in_sudan_time(self, mocked_now):
+        # 09:00 UTC is 11:00 in Khartoum.
+        mocked_now.return_value = datetime(
+            2026, 11, 3, 9, 0, tzinfo=ZoneInfo("UTC")
+        )
+        self.pharmacy.working_hours = "Sat-Thu 08:00-22:00; Fri 16:00-22:00"
+        self.pharmacy.save(update_fields=["working_hours"])
+
+        closed_user = User.objects.create_user(
+            username="closed_pharmacist",
+            password="test-password-123",
+            role="pharmacist",
+            is_active=True,
+            is_verified=True,
+        )
+        closed_pharmacy = Pharmacy.objects.create(
+            name="Closed Pharmacy",
+            address="456 Side Street",
+            owner=closed_user,
+            working_hours="Mon-Sun 18:00-23:00",
+        )
+        Inventory.objects.create(
+            pharmacy=closed_pharmacy,
+            medicine=self.panadol,
+            quantity=10,
+        )
+
+        response = self.client.get(
+            self.search_url,
+            {"q": "Panadol", "open_now": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["open_now"])
+        self.assertEqual(
+            [item.pharmacy.name for item in response.context["results"]],
+            ["ABC Pharmacy"],
+        )
+        self.assertContains(response, "Only show pharmacies open now")
+
+    @patch("users.views.timezone.now")
+    def test_open_now_filter_excludes_pharmacies_without_valid_hours(self, mocked_now):
+        mocked_now.return_value = datetime(
+            2026, 11, 3, 9, 0, tzinfo=ZoneInfo("UTC")
+        )
+        self.pharmacy.working_hours = ""
+        self.pharmacy.save(update_fields=["working_hours"])
+
+        response = self.client.get(
+            self.search_url,
+            {"q": "Panadol", "open_now": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["results"]), [])
+        self.assertContains(response, "No pharmacies with this medicine are currently marked as open.")
 
     def test_autocomplete_returns_available_medicine_suggestions(self):
         response = self.client.get(
