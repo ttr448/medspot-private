@@ -6,7 +6,7 @@ from .forms import PharmacyWorkingHoursForm
 
 from alerts.models import Alert
 from users.decorators import role_required
-from inventory.models import Inventory
+from inventory.models import Inventory, InventoryLog
 
 from .models import Pharmacy
 
@@ -31,6 +31,7 @@ def pharmacist_dashboard(request):
 
     inventory_items = []
     low_stock_alerts = []
+    inventory_logs = []
     if pharmacy is not None:
         inventory_items = (
             Inventory.objects.filter(pharmacy=pharmacy)
@@ -46,6 +47,9 @@ def pharmacist_dashboard(request):
             .select_related("medicine")
             .order_by("-created_at")
         )
+        inventory_logs = InventoryLog.objects.filter(
+            pharmacy_id_snapshot=pharmacy.pk
+        )[:50]
 
     return render(
         request,
@@ -55,5 +59,6 @@ def pharmacist_dashboard(request):
             "working_hours_form": working_hours_form,
             "inventory_items": inventory_items,
             "low_stock_alerts": low_stock_alerts,
+            "inventory_logs": inventory_logs,
         },
     )
