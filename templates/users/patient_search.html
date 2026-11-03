@@ -229,6 +229,8 @@
       const suggestionsUrl = "{% url 'users:medicine_suggestions' %}";
       const pageHasQuery = {{ query|yesno:"true,false" }};
       const serverHadLocation = {{ has_patient_location|yesno:"true,false" }};
+      const originalLatitude = latitudeInput.value;
+      const originalLongitude = longitudeInput.value;
 
       let locationPromise = null;
       let locationAttemptFinished = false;
@@ -271,6 +273,8 @@
             },
             function (error) {
               locationAttemptFinished = true;
+              latitudeInput.value = "";
+              longitudeInput.value = "";
               if (error.code === error.PERMISSION_DENIED) {
                 locationStatus.textContent =
                   "Location permission was not granted. You can still search, but pharmacies cannot be sorted by distance.";
@@ -311,8 +315,8 @@
 
         const locationChanged =
           !serverHadLocation ||
-          Number(latitudeInput.value) !== coordinates.lat ||
-          Number(longitudeInput.value) !== coordinates.lng;
+          Number(originalLatitude) !== coordinates.lat ||
+          Number(originalLongitude) !== coordinates.lng;
 
         if (pageHasQuery && locationChanged && !formSubmitWaiting) {
           submitSearchWithoutWaitingAgain();
