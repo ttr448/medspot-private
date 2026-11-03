@@ -78,6 +78,68 @@ class PatientMedicineSearchTests(TestCase):
         self.assertContains(response, "500 mg")
         self.assertNotContains(response, "250 mg")
 
+    def test_working_hours_are_displayed_only_when_requested(self):
+        self.pharmacy.working_hours = "Sat-Thu 08:00-22:00"
+        self.pharmacy.save(update_fields=["working_hours"])
+
+        default_response = self.client.get(self.search_url, {"q": "Panadol"})
+        self.assertEqual(default_response.status_code, 200)
+        self.assertNotContains(default_response, "Sat-Thu 08:00-22:00")
+
+        hours_response = self.client.get(
+            self.search_url,
+            {"q": "Panadol", "show_hours": "1"},
+        )
+        self.assertEqual(hours_response.status_code, 200)
+        self.assertTrue(hours_response.context["show_hours"])
+        self.assertContains(hours_response, "Sat-Thu 08:00-22:00")
+
+    def test_autocomplete_returns_available_medicine_suggestions(self):
+        response = self.client.get(
+            reverse("users:medicine_suggestions"),
+            {"q": "pana"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        suggestions = response.json()["suggestions"]
+        self.assertEqual(len(suggestions), 1)
+        self.assertEqual(suggestions[0]["name"], "Panadol")
+        self.assertEqual(suggestions[0]["strength"], "500 mg")
+
+    def test_autocomplete_ignores_queries_shorter_than_two_characters(self):
+        response = self.client.get(
+            reverse("users:medicine_suggestions"),
+            {"q": "p"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["suggestions"], [])
+
+    def test_autocomplete_is_not_available_to_non_patients(self):
+        pharmacist = User.objects.create_user(
+            username="suggestion_pharmacist",
+            password="test-password-123",
+            role="pharmacist",
+            is_active=True,
+            is_verified=True,
+        )
+        self.client.force_login(pharmacist)
+
+        response = self.client.get(
+            reverse("users:medicine_suggestions"),
+            {"q": "pana"},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["suggestions"], [])
+
+    def test_location_permission_is_requested_automatically(self):
+        response = self.client.get(self.search_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "requestLocation();")
+        self.assertNotContains(response, "Find Nearest Pharmacy")
+
     def test_patient_can_search_by_active_ingredient(self):
         response = self.client.get(self.search_url, {"q": "paracetamol"})
 
