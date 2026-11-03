@@ -123,12 +123,16 @@ class InventoryCrudTests(TestCase):
             Inventory.objects.filter(pharmacy=self.pharmacy, medicine=self.medicine).count(),
             1,
         )
+        # Both add attempts are rejected because this inventory already exists.
+        # A rejected operation does not change stock, so it must not create an audit log.
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.quantity, 20)
         self.assertEqual(
             InventoryLog.objects.filter(
                 pharmacy_id_snapshot=self.pharmacy.pk,
                 medicine_name="Panadol",
             ).count(),
-            1,
+            0,
         )
 
     def test_negative_quantity_is_rejected(self):
