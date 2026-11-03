@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from inventory.models import Inventory
@@ -132,6 +132,28 @@ class PatientMedicineSearchTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()["suggestions"], [])
+
+    @override_settings(GOOGLE_MAPS_API_KEY="test-google-maps-key")
+    def test_map_offers_in_app_driving_routes_when_patient_location_is_available(self):
+        self.pharmacy.latitude = "15.500000"
+        self.pharmacy.longitude = "32.500000"
+        self.pharmacy.save(update_fields=["latitude", "longitude"])
+
+        response = self.client.get(
+            self.search_url,
+            {
+                "q": "Panadol",
+                "lat": "15.501000",
+                "lng": "32.501000",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "directions-panel")
+        self.assertContains(response, "Route.computeRoutes")
+        self.assertContains(response, "createPolylines")
+        self.assertContains(response, "legs.steps.instructions")
+        self.assertContains(response, "Directions")
 
     def test_location_permission_is_requested_automatically(self):
         response = self.client.get(self.search_url)
