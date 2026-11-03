@@ -1,9 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from alerts.models import Alert
-from inventory.models import Inventory
+from inventory.models import Inventory, InventoryLog
 from medicines.models import Medicine
 from pharmacies.models import Pharmacy
 
@@ -67,6 +68,42 @@ class InventoryCrudTests(TestCase):
         self.assertEqual(added_item.minimum_threshold, 3)
         self.assertEqual(added_item.medicine.strength, "250 mg")
 
+    def test_adding_medicine_creates_an_audit_log_with_actor_and_details(self):
+        response = self.client.post(
+            reverse("inventory:medicine_add"),
+            {
+                "name": "Amoxicillin",
+                "category": "Antibiotic",
+                "active_ingredient": "Amoxicillin",
+                "strength": "250 mg",
+                "quantity": 12,
+                "minimum_threshold": 3,
+            },
+        )
+
+        self.assertRedirects(response, reverse("pharmacies:dashboard"))
+        added_item = Inventory.objects.get(
+            pharmacy=self.pharmacy,
+            medicine__name="Amoxicillin",
+        )
+        log = InventoryLog.objects.get(source_inventory_id_snapshot=added_item.pk)
+
+        self.assertEqual(log.action, "create")
+        self.assertEqual(log.actor_id_snapshot, self.pharmacist.pk)
+        self.assertEqual(log.actor_username, self.pharmacist.username)
+        self.assertEqual(log.pharmacy_id_snapshot, self.pharmacy.pk)
+        self.assertEqual(log.pharmacy_name, self.pharmacy.name)
+        self.assertEqual(log.medicine_name, "Amoxicillin")
+        self.assertIsNotNone(log.timestamp)
+        self.assertIn(
+            {"field": "Quantity", "before": None, "after": 12},
+            log.changes,
+        )
+        self.assertIn(
+            {"field": "Minimum threshold", "before": None, "after": 3},
+            log.changes,
+        )
+
     def test_duplicate_medicine_cannot_be_added_twice_to_same_pharmacy(self):
         data = {
             "name": "Panadol",
@@ -116,6 +153,27 @@ class InventoryCrudTests(TestCase):
         self.assertEqual(self.inventory.quantity, 8)
         self.assertEqual(self.inventory.minimum_threshold, 4)
 
+    def test_editing_inventory_creates_audit_log_with_before_and_after_values(self):
+        response = self.client.post(
+            reverse("inventory:medicine_edit", kwargs={"pk": self.inventory.pk}),
+            {"quantity": 8, "minimum_threshold": 4},
+        )
+
+        self.assertRedirects(response, reverse("pharmacies:dashboard"))
+        log = InventoryLog.objects.get(
+            source_inventory_id_snapshot=self.inventory.pk,
+            action="update",
+        )
+        self.assertEqual(log.actor_id_snapshot, self.pharmacist.pk)
+        self.assertIn(
+            {"field": "Quantity", "before": 20, "after": 8},
+            log.changes,
+        )
+        self.assertIn(
+            {"field": "Minimum threshold", "before": 5, "after": 4},
+            log.changes,
+        )
+
     def test_pharmacist_cannot_edit_another_pharmacy_inventory(self):
         other_user = User.objects.create_user(
             username="pharmacist2",
@@ -153,6 +211,55 @@ class InventoryCrudTests(TestCase):
         self.assertRedirects(response, reverse("pharmacies:dashboard"))
         self.assertFalse(Inventory.objects.filter(pk=self.inventory.pk).exists())
         self.assertTrue(Medicine.objects.filter(pk=self.medicine.pk).exists())
+
+    def test_deleting_inventory_keeps_its_audit_log(self):
+        inventory_id = self.inventory.pk
+        response = self.client.post(
+            reverse("inventory:medicine_delete", kwargs={"pk": inventory_id})
+        )
+
+        self.assertRedirects(response, reverse("pharmacies:dashboard"))
+        self.assertFalse(Inventory.objects.filter(pk=inventory_id).exists())
+
+        log = InventoryLog.objects.get(
+            source_inventory_id_snapshot=inventory_id,
+            action="delete",
+        )
+        self.assertEqual(log.medicine_name, "Panadol")
+        self.assertEqual(log.actor_id_snapshot, self.pharmacist.pk)
+        self.assertIn(
+            {"field": "Quantity", "before": 20, "after": None},
+            log.changes,
+        )
+
+    def test_audit_log_records_cannot_be_updated_or_deleted(self):
+        log = InventoryLog.objects.create(
+            source_inventory_id_snapshot=self.inventory.pk,
+            pharmacy_id_snapshot=self.pharmacy.pk,
+            pharmacy_name=self.pharmacy.name,
+            medicine_id_snapshot=self.medicine.pk,
+            medicine_name=self.medicine.name,
+            actor_id_snapshot=self.pharmacist.pk,
+            actor_username=self.pharmacist.username,
+            action="update",
+            changes=[{"field": "Quantity", "before": 20, "after": 10}],
+        )
+
+        log.actor_username = "changed-user"
+        with self.assertRaises(ValidationError):
+            log.save()
+
+        with self.assertRaises(ValidationError):
+            InventoryLog.objects.filter(pk=log.pk).update(actor_username="changed-user")
+
+        with self.assertRaises(ValidationError):
+            log.delete()
+
+        with self.assertRaises(ValidationError):
+            InventoryLog.objects.filter(pk=log.pk).delete()
+
+        log.refresh_from_db()
+        self.assertEqual(log.actor_username, self.pharmacist.username)
 
     def test_deleting_inventory_closes_its_active_low_stock_alert(self):
         alert = Alert.objects.create(
