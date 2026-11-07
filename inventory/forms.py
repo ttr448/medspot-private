@@ -1,11 +1,9 @@
 # inventory/forms.py
 """
-Forms for adding medicines and editing a pharmacy's medicine availability.
-
-The edit form includes both the shared medicine profile and this pharmacy's
-stock values. Profile changes are recorded for every pharmacy using that
-shared catalogue entry.
+Forms for adding medicines, editing stock, and importing medicine lists.
 """
+from pathlib import Path
+
 from django import forms
 
 
@@ -76,3 +74,27 @@ class EditInventoryForm(forms.Form):
     def clean_minimum_threshold(self):
         value = self.cleaned_data.get("minimum_threshold")
         return value if value is not None else 0
+
+
+class BatchUploadForm(forms.Form):
+    file = forms.FileField(
+        label="CSV or Excel file",
+        widget=forms.ClearableFileInput(
+            attrs={"class": "form-control", "accept": ".csv,.xlsx"}
+        ),
+    )
+
+    def clean_file(self):
+        uploaded_file = self.cleaned_data["file"]
+        extension = Path(uploaded_file.name).suffix.lower()
+
+        if extension not in {".csv", ".xlsx"}:
+            raise forms.ValidationError("Only .csv and .xlsx files are supported.")
+
+        if uploaded_file.size == 0:
+            raise forms.ValidationError("The selected file is empty.")
+
+        if uploaded_file.size > 5 * 1024 * 1024:
+            raise forms.ValidationError("The file must not exceed 5 MB.")
+
+        return uploaded_file
