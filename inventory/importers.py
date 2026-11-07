@@ -18,11 +18,6 @@ from .services import inventory_snapshot, record_inventory_change
 
 MAX_IMPORT_ROWS = 500
 REQUIRED_COLUMNS = {"name", "strength", "quantity"}
-OPTIONAL_COLUMNS = {
-    "active_ingredient",
-    "category",
-    "minimum_threshold",
-}
 FORM_COLUMNS = (
     "name",
     "active_ingredient",
@@ -179,6 +174,7 @@ def import_medicine_rows(pharmacy, user, rows):
     """
     created_count = 0
     updated_count = 0
+    unchanged_count = 0
 
     with transaction.atomic():
         for data in rows:
@@ -238,7 +234,9 @@ def import_medicine_rows(pharmacy, user, rows):
                         before_snapshot=before_snapshot,
                         after_snapshot=inventory_snapshot(inventory),
                     )
-                updated_count += 1
+                    updated_count += 1
+                else:
+                    unchanged_count += 1
 
             update_low_stock_alert(
                 inventory,
@@ -246,4 +244,8 @@ def import_medicine_rows(pharmacy, user, rows):
                 previous_was_low=previous_was_low,
             )
 
-    return {"created": created_count, "updated": updated_count}
+    return {
+        "created": created_count,
+        "updated": updated_count,
+        "unchanged": unchanged_count,
+    }
