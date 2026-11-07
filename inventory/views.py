@@ -12,7 +12,8 @@ from users.decorators import role_required
 from pharmacies.models import Pharmacy
 from medicines.models import Medicine
 
-from .forms import AddMedicineForm, EditInventoryForm
+from .forms import AddMedicineForm, BatchUploadForm, EditInventoryForm
+from .importers import BatchUploadError, import_medicine_rows, parse_medicine_upload
 from .models import Inventory
 from .services import inventory_snapshot, record_inventory_change
 
@@ -192,3 +193,38 @@ def medicine_delete(request, pk):
         return redirect("pharmacies:dashboard")
 
     return render(request, "inventory/medicine_confirm_delete.html", {"inventory": inventory})
+
+
+@role_required("pharmacist", require_verified=True)
+def medicine_batch_upload(request):
+    pharmacy = _get_owned_pharmacy(request)
+    if pharmacy is None:
+        messages.error(request, "No pharmacy is linked to your account yet.")
+        return redirect("pharmacies:dashboard")
+
+    batch_errors = []
+    if request.method == "POST":
+        form = BatchUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                rows = parse_medicine_upload(form.cleaned_data["file"])
+            except BatchUploadError as exc:
+                batch_errors = exc.errors
+            else:
+                result = import_medicine_rows(pharmacy, request.user, rows)
+                messages.success(
+                    request,
+                    (
+                        f"Import completed: {result['created']} medicines added and "
+                        f"{result['updated']} existing pharmacy records updated."
+                    ),
+                )
+                return redirect("pharmacies:dashboard")
+    else:
+        form = BatchUploadForm()
+
+    return render(
+        request,
+        "inventory/batch_upload.html",
+        {"form": form, "batch_errors": batch_errors},
+    )
