@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Import Medicines | MedSpot{% endblock %}
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-lg-9">
+      <h1 class="h3 mb-2">Import Medicines from CSV / Excel</h1>
+      <p class="text-muted">
+        Upload a CSV or .xlsx file to add several medicines to your pharmacy at once.
+      </p>
+
+      {% if batch_errors %}
+        <div class="alert alert-danger" role="alert">
+          <h2 class="h6">The file was not imported</h2>
+          <p>Please correct the following issues and upload the file again:</p>
+          <ul class="mb-0">
+            {% for error in batch_errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+              {{ form.file.label_tag }}
+              {{ form.file }}
+              {% for error in form.file.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            </div>
+            <button type="submit" class="btn btn-primary">Upload and Import</button>
+            <a href="{% url 'pharmacies:dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h2 class="h5">Required file format</h2>
+          <p class="mb-2">Use these exact column names in the first row:</p>
+          <ul>
+            <li><strong>Required:</strong> name, strength, quantity</li>
+            <li><strong>Optional:</strong> active_ingredient, category, minimum_threshold</li>
+          </ul>
+          <p class="small text-muted">
+            Maximum file size: 5 MB. Maximum number of medicine rows: 500.
+            Quantity and minimum threshold must be zero or greater.
+          </p>
+          <h3 class="h6">Example CSV content</h3>
+          <pre class="bg-light border rounded p-3 mb-0"><code>name,active_ingredient,category,strength,quantity,minimum_threshold
+Paracetamol,Paracetamol,Analgesic,500 mg,20,5
+Amoxicillin,Amoxicillin,Antibiotic,250 mg,12,3</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
