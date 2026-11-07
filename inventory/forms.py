@@ -78,7 +78,7 @@ class EditInventoryForm(forms.Form):
 
 class BatchUploadForm(forms.Form):
     file = forms.FileField(
-        label="CSV or Excel file",
+        label="CSV or Excel (.xlsx) file",
         widget=forms.ClearableFileInput(
             attrs={"class": "form-control", "accept": ".csv,.xlsx"}
         ),
