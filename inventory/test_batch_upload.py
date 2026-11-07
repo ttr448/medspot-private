@@ -1,5 +1,4 @@
-import csv
-from io import BytesIO, StringIO
+from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
