@@ -216,7 +216,8 @@ def medicine_batch_upload(request):
                     request,
                     (
                         f"Import completed: {result['created']} medicines added and "
-                        f"{result['updated']} existing pharmacy records updated."
+                        f"{result['updated']} existing records updated and "
+                        f"{result['unchanged']} unchanged."
                     ),
                 )
                 return redirect("pharmacies:dashboard")
