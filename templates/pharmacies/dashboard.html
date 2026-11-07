@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Pharmacist Dashboard{% endblock %}
 {% block content %}
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
       <h1 class="h3 mb-0">Pharmacist Dashboard</h1>
       {% if pharmacy %}
@@ -9,7 +9,10 @@
       {% endif %}
     </div>
     {% if pharmacy %}
-      <a href="{% url 'inventory:medicine_add' %}" class="btn btn-primary">+ Add Medicine</a>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'inventory:medicine_add' %}" class="btn btn-primary">+ Add Medicine</a>
+        <a href="{% url 'inventory:medicine_batch_upload' %}" class="btn btn-outline-primary">Import CSV / Excel</a>
+      </div>
     {% endif %}
   </div>
 
